@@ -69,3 +69,15 @@ Fill every field:
 - A verdict that restates the debate without choosing.
 - Hedged recommendations with no deciding variable.
 - Listing risks without trigger conditions or likelihood.
+
+## Validation checklist (self-check before ending)
+
+Before emitting the final output, confirm every box. A failed box means the run is incomplete — fix it before finishing.
+
+- [ ] Peer rating table is present, with column averages, a ranking, **and** the Position → persona reveal.
+- [ ] Every Round 1–3 turn ends with a `Verdict:` line.
+- [ ] The Judge filled **all** Final Verdict fields (best argument, biggest risk, key tradeoff, consensus, recommendation, confidence, next 3 actions).
+- [ ] The recommendation is committed; it is conditional **only** with an explicit "unless Y" deciding variable.
+- [ ] No generic "more scalable" / "more reliable" claims without a named dimension and number.
+- [ ] If the topic referenced a repo/path, Context states what exists and what doesn't.
+- [ ] If an architecture/design topic, the ADR snippet is included.

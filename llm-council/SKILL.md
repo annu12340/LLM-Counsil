@@ -41,9 +41,22 @@ Five debaters plus one judge. The Judge stays silent until the Final Verdict.
 5. **Product / User Advocate** — evaluates user value, usability, adoption, and practical tradeoffs.
 6. **Judge / Synthesizer** — does not debate in Rounds 1–3; summarizes the strongest arguments, resolves disagreements, and gives the final recommendation and next steps.
 
+- **Security council** — when the topic is auth, data handling, threat modeling, or the user asks for a "security council," swap **Product / User Advocate → Security Engineer**: evaluates attack surface, trust boundaries, authn/authz, data exposure, and abuse/misuse cases; names concrete threats and their blast radius.
+
+
+## Code-aware mode
+
+If the topic points at a repo, path, file, or "this codebase," ground the debate in what the code actually is **before** Round 1:
+
+1. **Read relevant files first** — start with the `README`, then entrypoints (`main`/`cli`/`app`/server bootstrap), core modules, and tests. Tests reveal intended behavior; the README reveals intended scope. Read enough to know what exists and what doesn't — don't guess.
+2. **Record findings under Context** — state concretely **what exists** (architecture, persistence, scale, dependencies) and **what doesn't** (no DB, no service layer, no queue, etc.). Cite files/functions where useful.
+3. **Let personas attack the premise** — a valid position is "this is the wrong question for this codebase." If the topic assumes infrastructure or scale the repo doesn't have, surface that the literal question and its premise are two different debates, and address both.
+
+This keeps every run grounded in the real code instead of an imagined version of it.
+
 ## Procedure
 
-1. **Setup** — Restate the topic and context. If criteria weren't provided, infer 2–4 decision criteria and state them explicitly. If the topic is underspecified, make reasonable assumptions and list them under Context.
+1. **Setup** — Restate the topic and context. **If the topic references a repo/path, do Code-aware mode first** and fold its findings into Context. If criteria weren't provided, infer 2–4 decision criteria and state them explicitly. If the topic is underspecified, make reasonable assumptions and list them under Context.
 2. **Round 1 — Opening Positions** — Each debater (personas 1–5) states a concrete position. No fence-sitting; each must take a stance.
 3. **Peer Rating (anonymized)** — After Round 1, strip the author labels from the five opening positions and re-label them `Position A`–`Position E` in shuffled order. Each persona then scores the *other* positions blind (they skip their own, marked `—`), so ratings reflect argument quality, not reputation. Use a 1–10 composite (analytical **rigor** + **usefulness**) with a one-line critique per cell. Report column averages, a ranking, then reveal the Position → persona mapping. See the rubric for scoring guidance.
 4. **Round 2 — Challenges** — Each debater challenges at least one other persona by name with a specific, technical objection. Do not let personas converge yet.
@@ -123,7 +136,14 @@ _Verdict: <one-line stance>_
   1. ...
   2. ...
   3. ...
+
+## ADR snippet
+- **Status:** proposed
+- **Decision:** <the committed recommendation, one line>
+- **Consequences:** <what this buys, what it costs, and what is now harder>
 ```
+
+The **ADR snippet** is an optional final section that maps the verdict to the format teams use to record architecture decisions, so the output can be pasted straight into a decision log. Include it by default for architecture/design topics; omit it for purely conceptual debates.
 
 ## Rules
 

@@ -38,6 +38,8 @@ shared_rules: |
   - Do not agree too early. Manufacture genuine disagreement in Rounds 1-2.
   - Avoid generic pros/cons. Force concrete, named tradeoffs (X vs Y, with the cost of each).
   - In Round 2, address other personas by name.
+  - End every debater turn in Rounds 1-3 with a one-line "Verdict:" stating that persona's current stance, so positions are trackable as they evolve.
+  - Peer rating is blind: anonymize and shuffle the Round 1 positions before scoring, and never let a persona rate their own. Justify every score with a one-line critique.
   - If the topic is underspecified, make reasonable assumptions and state them.
   - Match verbosity to output_depth (quick | standard | deep).
 
@@ -97,26 +99,65 @@ agents:
       recommendation (conditional is fine: "Do X unless Y, then Z"). Fill every
       field of the Final Verdict. Prefer actionable over hedged.
 
+# Optional roster swaps: replace one debater to match the decision. The roster
+# stays at five debaters + Judge -- a swap substitutes, it does not add a seat.
+# State which roster is in play under Context.
+persona_swaps:
+  - id: security_council
+    trigger: auth, data handling, threat modeling, or user asks for a "security council"
+    replace: product_user_advocate
+    with:
+      id: security_engineer
+      role: Security Engineer
+      debater: true
+      temperature: 0.6
+      system: |
+        You evaluate attack surface, trust boundaries, authn/authz, data
+        exposure, and abuse/misuse cases. You name concrete threats and their
+        blast radius, not vague "security concerns." Take a stance on what to
+        defend, what to accept, and what is unacceptable.
+
+rating:
+  scale: [1, 10]
+  dimensions:
+    - rigor        # reasoning soundness, mechanism-grounded, no unstated leaps
+    - usefulness   # moves the decision forward with something actionable
+  anchors: "9-10 decisive & well-supported; 7-8 strong with a gap; 5-6 reasonable but assumes too much; <=4 weak/pattern-matched"
+  blind: true      # positions anonymized + shuffled; raters skip their own (score = '-')
+
 flow:
   - round: 1
     name: Opening Positions
     participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
-    instruction: Each debater states a concrete position. No fence-sitting.
+    instruction: Each debater states a concrete position. No fence-sitting. End the turn with a one-line "Verdict:" stance.
+
+  - round: 1.5
+    name: Peer Rating (anonymized)
+    participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
+    instruction: >-
+      Strip author labels from the five Round 1 positions and re-label them Position A-E in
+      shuffled order. Each persona scores the other positions blind on a 1-10 composite (rigor +
+      usefulness) with a one-line critique each; own position = '-'. Report per-position column
+      averages, rank them, then reveal the Position -> persona mapping.
 
   - round: 2
     name: Challenges
     participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
-    instruction: Each debater challenges at least one other persona by name with a specific technical objection. Do not converge yet.
+    instruction: Each debater challenges at least one other persona by name with a specific technical objection. Do not converge yet. End the turn with a one-line "Verdict:" stance.
 
   - round: 3
     name: Rebuttals
     participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
-    instruction: Each debater defends or updates their position. State what changed and why if updating.
+    instruction: Each debater defends or updates their position. State what changed and why if updating. End the turn with a one-line "Verdict:" stance.
 
   - round: 4
     name: Final Verdict
     participants: [judge_synthesizer]
-    instruction: Synthesize and fill every field of the verdict template.
+    instruction: >-
+      Synthesize and fill every field of the verdict template: best argument, biggest risk
+      (with trigger conditions), key tradeoff (named X-vs-Y), consensus, recommendation
+      (committed; conditional allowed), confidence level (low/medium/high with a one-line why),
+      and exactly three concrete next actions.
 
 output_template: |
   # LLM Council Debate
@@ -128,13 +169,25 @@ output_template: |
   {context, inferred criteria, and stated assumptions}
 
   ## Round 1: Opening Positions
-  {one position per debater}
+  {one position per debater, each ending with "Verdict: <one-line stance>"}
+
+  ## Peer Rating (Anonymized)
+  {Positions A-E shuffled with authors hidden, then a Rater x Position matrix
+   (own = '-'), column averages, a ranking, and the Position -> persona reveal}
+
+  | Rater \ Position | A | B | C | D | E |
+  |---|---|---|---|---|---|
+  | {persona} | n | n | - | n | n |
+  | ... | | | | | |
+  | **Average** | | | | | |
+
+  Ranking: 1) Position X ... | Reveal: A = {persona}, B = {persona}, ...
 
   ## Round 2: Challenges
-  {each debater challenges another by name}
+  {each debater challenges another by name, each ending with "Verdict: <one-line stance>"}
 
   ## Round 3: Rebuttals
-  {each debater defends or updates}
+  {each debater defends or updates, each ending with "Verdict: <one-line stance>"}
 
   ## Final Verdict
   - Best argument:
@@ -142,5 +195,24 @@ output_template: |
   - Key tradeoff:
   - Consensus:
   - Recommendation:
-  - Confidence level:
+  - Confidence level: {low | medium | high} - {one-line why}
   - Next 3 actions:
+    1.
+    2.
+    3.
+
+  ## ADR snippet
+  {optional; include for architecture/design topics, omit for purely conceptual ones}
+  - Status: proposed
+  - Decision: {the committed recommendation, one line}
+  - Consequences: {what this buys, what it costs, and what is now harder}
+
+# Self-check before emitting output. A failed item means the run is incomplete.
+validation_checklist:
+  - Peer rating table present with column averages, a ranking, and the Position -> persona reveal.
+  - Every Round 1-3 turn ends with a "Verdict:" line.
+  - Judge filled all Final Verdict fields (best argument, biggest risk, key tradeoff, consensus, recommendation, confidence, next 3 actions).
+  - Recommendation is committed; conditional only with an explicit "unless Y" deciding variable.
+  - No generic "more scalable"/"more reliable" claims without a named dimension and number.
+  - If the topic referenced a repo/path, Context states what exists and what doesn't.
+  - If an architecture/design topic, the ADR snippet is included.
