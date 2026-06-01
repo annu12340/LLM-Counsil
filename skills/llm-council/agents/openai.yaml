@@ -99,6 +99,18 @@ agents:
       recommendation (conditional is fine: "Do X unless Y, then Z"). Fill every
       field of the Final Verdict. Prefer actionable over hedged.
 
+  - id: naive_baseline
+    role: Naive Single-Model Take
+    debater: false
+    temperature: 0.7
+    system: |
+      You are a single, one-shot model answering the bare question with no access
+      to the codebase and no debate. Give the genuine, typical answer: agreeable,
+      hedgy, leaning on generic best practice ("it depends"). 2-4 sentences. Then add
+      one line stating why this answer is risky or insufficient here -- ungrounded in
+      the real code, hedged instead of committed, no concrete tradeoff or failure mode.
+      Do not strawman yourself; this is a fair baseline shown for contrast.
+
 # Optional roster swaps: replace one debater to match the decision. The roster
 # stays at five debaters + Judge -- a swap substitutes, it does not add a seat.
 # State which roster is in play under Context.
@@ -126,6 +138,15 @@ rating:
   blind: true      # positions anonymized + shuffled; raters skip their own (score = '-')
 
 flow:
+  - round: 0
+    name: Naive Single-Model Take
+    participants: [naive_baseline]
+    instruction: >-
+      Before the council convenes, give the answer a single one-shot model would give the
+      bare question with no codebase grounding and no debate: 2-4 sentences in an
+      agreeable/hedgy register, then one line naming why it's risky/insufficient (ungrounded,
+      hedged, no committed tradeoff). A fair baseline shown for contrast, not a strawman.
+
   - round: 1
     name: Opening Positions
     participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
@@ -164,6 +185,13 @@ output_template: |
 
   ## Topic
   {topic}
+
+  ## Naive Single-Model Take
+  > _What a single one-shot model says before the council convenes — a baseline, not an endorsement._
+
+  {2-4 sentence agreeable/hedgy ungrounded answer}
+
+  **Why this is risky:** {one line — ungrounded, hedges, no committed tradeoff or failure mode}
 
   ## Context
   {context, inferred criteria, and stated assumptions}
@@ -207,8 +235,28 @@ output_template: |
   - Decision: {the committed recommendation, one line}
   - Consequences: {what this buys, what it costs, and what is now harder}
 
+# HTML rendering. Mirrors SKILL.md "HTML rendering" — keep in sync.
+# Always render as the final step of every run; not opt-in. The full Markdown is still produced.
+html_render:
+  always: true
+  output_dir: llm-council-output/
+  self_contained: true   # inline the assets; no external <link>/<script src>
+  assets:
+    style: assets/council-style.css   # inline into <style> in <head>
+    script: assets/council.js         # inline into <script> before </body>
+  reference: llm-council-output/kafka-vs-rabbitmq.html
+  contract: >-
+    Emit: a .naive callout (with .naive-label + .naive-risk) right after the hero,
+    before Topic, for the single-model baseline; persona color classes .p1-.p5 + .avatar glyphs; .turn per turn with a
+    .pverdict; an .evo grid of .chip[data-stance=kafka|rabbit|neither|undecided]
+    with a ↻ .chg marker where a persona's stance bucket changes between rounds;
+    .rate-table td[data-score=N] (+ td.self) for the heatmap; .rank <li> bars with
+    style="--score:N" and the revealed persona class; .gauge[data-confidence=N]
+    with a .val span by the Confidence row.
+
 # Self-check before emitting output. A failed item means the run is incomplete.
 validation_checklist:
+  - Naive Single-Model Take is present (2-4 sentences, fair not strawman) with a one-line "why this is risky" note, before the council content.
   - Peer rating table present with column averages, a ranking, and the Position -> persona reveal.
   - Every Round 1-3 turn ends with a "Verdict:" line.
   - Judge filled all Final Verdict fields (best argument, biggest risk, key tradeoff, consensus, recommendation, confidence, next 3 actions).

@@ -1,69 +1,155 @@
-# skill2 — LLM Council Skill Workspace
+# LLM Council — Agent Skill
 
-A **Claude Code / Cursor Agent Skill authoring workspace** for the **LLM Council** skill: a structured, multi-persona debate that pressure-tests technical decisions and produces an actionable verdict. This repository is not a deployable application—it holds the skill package, a small code fixture for exercising it, and example debate output.
+**LLM Council** is a **Cursor / Claude Code Agent Skill** that runs a structured 5-persona debate (plus Judge), blind peer-rates opening arguments, and outputs a committed verdict—**markdown**, an optional **ADR snippet**, and **offline HTML** under [`llm-council-output/`](llm-council-output/).
+
+Use it to pressure-test architecture choices, design decisions, tech comparisons (`X vs Y`), papers, and red-team plans—not a single-shot pros/cons list.
+
+**Landing page:** open [`index.html`](index.html) in a browser (offline-friendly).
+
+## Quick start
+
+1. **Install** all skills: `./scripts/install-skills.sh` (see [Install](#install)).
+2. **Open** this repo in Cursor or Claude Code and start a **new session** (skills load at startup).
+3. **Invoke** with a trigger phrase, for example:
+
+```text
+LLM Council: Should we use Kafka or RabbitMQ for ~10k events/sec? Small ops team; need replay.
+```
+
+**Code-aware** (reads the fixture repo before debating):
+
+```text
+/llm-council Should Acme URL shortener use Postgres or Redis for persistence?
+```
+
+4. **Review** example HTML: [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) · [`postgres-vs-redis.html`](llm-council-output/postgres-vs-redis.html)
+
+Full procedure and output contract: [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
+
+## Trigger phrases
+
+The skill auto-invokes when the user message includes any of:
+
+| Trigger | Examples |
+|---------|----------|
+| Council | `council`, `LLM Council`, `/llm-council` |
+| Debate / red team | `debate`, `pressure-test`, `red team`, `red-team` |
+| Decisions | `ADR`, `architecture decision`, `which should we use`, `Kafka vs RabbitMQ` |
+| Code-aware | A repo path or “this codebase” with a design or technology question |
+
+Optional context and criteria can be omitted—the skill infers defaults and proceeds.
 
 ## What’s in this repo
 
 | Path | Purpose |
 |------|---------|
-| [`llm-council/`](llm-council/) | **Primary artifact** — the skill package (`SKILL.md`, agent config, scoring rubric) |
-| [`sample-repo/`](sample-repo/) | **Test fixture** — a minimal in-memory URL shortener used to run code-aware debates against real code |
-| [`llm-council-output/`](llm-council-output/) | **Example output** — rendered debate artifacts (e.g. HTML exports) |
-| [`CLAUDE.md`](CLAUDE.md) | Agent-oriented notes for working in this repo (install paths, test commands, sync rules) |
+| [`skills/`](skills/) | **Skill packages** (source of truth) — install with [`scripts/install-skills.sh`](scripts/install-skills.sh) |
+| [`skills/llm-council/`](skills/llm-council/) | Council debate skill — rubric, architecture reference, HTML assets, OpenAI agent config |
+| [`skills/frontend-skills/`](skills/frontend-skills/) | Frontend design skill (`name: frontend-design`) |
+| [`Acme URL shortener/`](Acme%20URL%20shortener/) | **Code-aware fixture** — minimal URL shortener to debate against real code |
+| [`llm-council-output/`](llm-council-output/) | **Example debates** — self-contained HTML (offline-shareable) |
+| [`CLAUDE.md`](CLAUDE.md) | Authoring notes (sync, sandbox, test commands) |
 
 ## LLM Council at a glance
 
-The skill runs a **4-round debate** among five expert personas plus a silent **Judge** who speaks only in the final round:
+**Flow** (five debaters; Judge silent until the end):
 
-1. **Opening Positions** — each debater takes a concrete stance  
-2. **Peer Rating (anonymized)** — blind scoring of Round 1 arguments  
-3. **Challenges** — named, technical objections to other personas  
+1. **Opening Positions** — concrete stance per persona  
+2. **Peer Rating (anonymized)** — blind 1–10 scoring of Round 1 arguments  
+3. **Challenges** — named, technical objections  
 4. **Rebuttals** — defend or update positions  
-5. **Final Verdict** — Judge synthesizes recommendation, risks, tradeoffs, and next steps  
+5. **Final Verdict** — recommendation, risks, tradeoffs, next 3 actions  
 
-**Personas:** First-Principles Thinker, Research Scientist, Systems Engineer, Skeptic / Red Team, Product / User Advocate, and Judge / Synthesizer. For security-focused topics, Product Advocate can be swapped for a **Security Engineer** persona.
+**Personas:** First-Principles Thinker, Research Scientist, Systems Engineer, Skeptic / Red Team, Product / User Advocate, Judge / Synthesizer. For security topics, swap Product Advocate for **Security Engineer** (see `SKILL.md`).
 
-**When to use it:** architecture or technology choices, design decisions, red-teaming a plan, paper critiques, or any question where you want tradeoffs surfaced and a decisive recommendation—not a generic pros/cons list.
+**Outputs:**
 
-**Code-aware mode:** If the topic references a repo or path, the skill instructs the agent to read `README`, entrypoints, core modules, and tests *before* debating, so arguments stay grounded in what the code actually does.
+- Markdown debate (rounds, peer-rating table, verdict, optional ADR snippet)
+- Self-contained HTML under `llm-council-output/` (inlined CSS/JS; convergence grid, peer heatmap, confidence gauge)
 
-See [`llm-council/SKILL.md`](llm-council/SKILL.md) for the full procedure, input schema, and markdown output template (including an optional **ADR snippet** for architecture decisions).
+**Code-aware mode:** If the topic references a repo or path, the agent reads `README`, entrypoints, core modules, and tests *before* Round 1 so arguments match what the code actually does.
 
-## Repository layout (skill package)
+## Why this is a strong Agent Skill
+
+- **Procedure, not vibes** — numbered rounds; Judge only speaks in the final verdict  
+- **Progressive disclosure** — rubric in [`references/debate-framework.md`](skills/llm-council/references/debate-framework.md); architecture in [`references/architecture.md`](skills/llm-council/references/architecture.md)  
+- **Deterministic output contract** — markdown template + HTML class/`data-*` schema in `SKILL.md`  
+- **Bundled assets** — `assets/council-style.css` and `assets/council.js` inlined into each HTML artifact  
+- **Portable** — [`agents/openai.yaml`](skills/llm-council/agents/openai.yaml) mirrors the same roster and flow  
+
+## Skill packages (`skills/`)
 
 ```
-llm-council/
-├── SKILL.md                      # Skill definition (discovery, flow, output format)
-├── agents/openai.yaml            # Same roster/flow for OpenAI-style multi-agent runners
-└── references/debate-framework.md  # Scoring rubric and round expectations
+skills/
+├── llm-council/
+│   ├── SKILL.md
+│   ├── agents/openai.yaml
+│   ├── references/debate-framework.md
+│   └── assets/
+└── frontend-skills/
+    └── SKILL.md                    # name: frontend-design
 ```
 
-Keep these three files **in sync** when you change personas, rounds, or output contracts.
+The `skills/` directory is **not** auto-loaded by agents. Install into a discovery path (below), then start a **new session**.
 
-## Install and activate the skill
+Keep `skills/llm-council/` files **in sync** when you change personas, rounds, or the HTML contract.
 
-Claude Code discovers skills only from:
+## Install
 
-- **Personal:** `~/.claude/skills/<name>/SKILL.md`
-- **Project-scoped:** `<project>/.claude/skills/<name>/SKILL.md`
+### Install script (recommended)
 
-Editing files under `llm-council/` in this repo **does not** update the active skill until you copy them to an install location:
+From the repo root:
 
 ```bash
-cp -R llm-council ~/.claude/skills/llm-council
+./scripts/install-skills.sh
 ```
 
-**Important:**
+This installs **every** package under `skills/` using each skill’s `name:` from `SKILL.md` frontmatter (e.g. `frontend-skills/` → `frontend-design`).
 
-- Skills load at **session startup** — restart Claude Code (or start a new session) after installing or updating.
-- Skill discovery uses `SKILL.md` frontmatter (`name`, `description`). The `description` field drives when the skill auto-triggers; keep it specific about *when* to invoke.
-- In some managed environments, writing to `~/.claude/skills` or `<project>/.claude/skills` may require disabling the sandbox for the copy step.
+| Option | Values | Default |
+|--------|--------|---------|
+| `--target` | `cursor`, `claude` | `cursor` |
+| `--scope` | `personal`, `project` | `personal` |
+| `--symlink` | link instead of copy | off |
+| `--dry-run` | print only | off |
 
-For **Cursor**, install the skill under your Cursor skills path (e.g. `~/.cursor/skills/` or project skills) following the same `SKILL.md` layout; see [Cursor Agent Skills](https://docs.cursor.com) for your environment’s conventions.
+Examples:
+
+```bash
+# Cursor, all projects (personal)
+./scripts/install-skills.sh
+
+# Claude Code
+./scripts/install-skills.sh --target claude
+
+# This repo only (commit .cursor/skills for teammates)
+./scripts/install-skills.sh --scope project
+
+# Edit skills/ in place; re-run after changes
+./scripts/install-skills.sh --symlink
+```
+
+Then **start a new Agent chat** (skills load at session startup).
+
+### Manual install
+
+| Environment | Personal | Project-scoped |
+|-------------|----------|----------------|
+| **Cursor** | `~/.cursor/skills/<name>/` | `.cursor/skills/<name>/` |
+| **Claude Code** | `~/.claude/skills/<name>/` | `.claude/skills/<name>/` |
+
+```bash
+cp -R skills/llm-council ~/.cursor/skills/llm-council
+cp -R skills/frontend-skills ~/.cursor/skills/frontend-design
+```
+
+**Discovery:** `description` in `SKILL.md` frontmatter drives auto-triggering. After edits under `skills/`, re-run the install script (or use `--symlink`).
+
+In some managed environments, writing to `~/.cursor/skills` or `.cursor/skills` may require running the script in a normal terminal (outside the sandbox).
 
 ## How to invoke
 
-Ask for a council debate on a topic, optionally with context and decision criteria:
+**Generic debate:**
 
 ```text
 Run an LLM Council debate: Should we use Kafka or RabbitMQ for our event pipeline?
@@ -71,7 +157,7 @@ Context: ~10k events/sec, at-least-once delivery, small ops team.
 Criteria: operational simplicity, replay, cost.
 ```
 
-Against the sample fixture (see [`sample-repo/sample-questions`](sample-repo/sample-questions)):
+**Against the Acme fixture** (see [`Acme URL shortener/sample-questions`](Acme%20URL%20shortener/sample-questions)):
 
 ```text
 /llm-council Should this repo use Postgres or Redis for persistence?
@@ -81,7 +167,7 @@ Against the sample fixture (see [`sample-repo/sample-questions`](sample-repo/sam
 /llm-council Is base-62 the right encoding for this shortener, or should we use UUIDs?
 ```
 
-**Optional inputs** (defined in the skill):
+**Optional inputs:**
 
 | Input | Required | Notes |
 |-------|----------|--------|
@@ -90,11 +176,9 @@ Against the sample fixture (see [`sample-repo/sample-questions`](sample-repo/sam
 | Decision criteria | No | Inferred if omitted |
 | Output depth | No | `quick`, `standard` (default), or `deep` |
 
-Output is markdown following the template in `SKILL.md` (topic, context, rounds, peer-rating table, final verdict, optional ADR snippet). You can save or export debates under `llm-council-output/` (e.g. [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html)).
+## Acme URL shortener (code-aware fixture)
 
-## Sample repo (test fixture)
-
-[`sample-repo/`](sample-repo/) is **tiny-shortener**: an in-memory URL shortener with base-62 codes. It exists so council debates can reference real modules, tests, and limitations—not an imaginary system.
+[`Acme URL shortener/`](Acme%20URL%20shortener/) is a minimal in-memory URL shortener with base-62 codes. It exists so council debates cite real modules, tests, and limitations—not an imagined system.
 
 | File | Role |
 |------|------|
@@ -105,7 +189,7 @@ Output is markdown following the template in `SKILL.md` (topic, context, rounds,
 **CLI** (state resets each invocation; codes do not persist between commands):
 
 ```bash
-cd sample-repo
+cd "Acme URL shortener"
 python3 cli.py shorten https://example.com   # -> https://sh.rt/1
 python3 cli.py resolve 1                      # -> https://example.com
 python3 cli.py stats 1                        # -> https://example.com (N clicks)
@@ -114,34 +198,39 @@ python3 cli.py stats 1                        # -> https://example.com (N clicks
 **Tests:**
 
 ```bash
-cd sample-repo && pytest -q
+cd "Acme URL shortener" && pytest -q
 ```
 
-If `pytest` is not available (e.g. in a minimal sandbox):
+If `pytest` is not available:
 
 ```bash
-cd sample-repo && python3 -c "
+cd "Acme URL shortener" && python3 -c "
 import test_shortener as t
 for n in dir(t):
     if n.startswith('test_'): getattr(t, n)(); print('PASS', n)"
 ```
 
-More detail: [`sample-repo/README.md`](sample-repo/README.md).
+More detail: [`Acme URL shortener/README.md`](Acme%20URL%20shortener/README.md).
 
 ## Development workflow
 
-1. Edit skill files under `llm-council/` (and keep `SKILL.md`, `agents/openai.yaml`, and `references/debate-framework.md` aligned).
-2. Copy the package to your skills install directory (see above).
+1. Edit files under `skills/` (keep `llm-council` SKILL.md, `agents/openai.yaml`, and `references/debate-framework.md` aligned).
+2. Run `./scripts/install-skills.sh` (or re-copy manually).
 3. Restart the agent session.
-4. Run a debate against `sample-repo` or your own topic; refine personas, rubric, or output template as needed.
-5. Optionally commit example output under `llm-council-output/`.
+4. Run a debate against `Acme URL shortener/` or your own topic.
+5. Commit example output under `llm-council-output/` when useful.
 
-Agent-specific commands and sandbox notes live in [`CLAUDE.md`](CLAUDE.md).
+See [`CLAUDE.md`](CLAUDE.md) for sandbox and sync notes.
 
 ## Example output
 
-[`llm-council-output/kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) shows a rendered debate artifact. Markdown debates produced by the skill follow the structure in [`llm-council/SKILL.md`](llm-council/SKILL.md).
+| Artifact | Topic |
+|----------|--------|
+| [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) | Messaging / event pipeline |
+| [`postgres-vs-redis.html`](llm-council-output/postgres-vs-redis.html) | Persistence (code-aware fixture) |
+
+Open any `.html` file in a browser—no server required. Markdown structure matches [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
 
 ## License
 
-No license file is included in this repository. Add one if you plan to distribute the skill publicly.
+No license file is included. Add one if you plan to distribute the skill publicly.

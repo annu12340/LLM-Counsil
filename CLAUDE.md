@@ -4,53 +4,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A **Claude Code Skill-authoring workspace**, not a deployable application. It holds:
+A **Claude Code / Cursor Agent Skill authoring workspace**. It holds:
 
-- `llm-council/` — the authored Skill package (`SKILL.md`, `agents/openai.yaml`, `references/debate-framework.md`). This is the primary artifact.
-- `sample-repo/` — a tiny in-memory URL shortener used as a **test fixture** for exercising the Skill against real code (it is not the product).
-- `llm-council-output/` — rendered debate artifacts (e.g. `kafka-vs-rabbitmq.html`) produced by running the Skill.
+- `skills/` — skill packages (source of truth); install with `scripts/install-skills.sh`
+- `Acme URL shortener/` — code-aware fixture for council debates
+- `llm-council-output/` — rendered debate HTML artifacts
+- `index.html` — landing page
 
-## Skill development — the critical workflow detail
+## Install skills
 
-Editing files under `llm-council/` here does **NOT** change the active Skill. Claude Code only discovers skills under:
-
-- `~/.claude/skills/<name>/SKILL.md` (personal — currently where `llm-council` is installed), or
-- `<project>/.claude/skills/<name>/SKILL.md` (project-scoped)
-
-Consequences to remember:
-
-- **After editing the Skill here, re-copy it to the installed location** or the change has no effect:
-  `cp -R llm-council ~/.claude/skills/llm-council`
-- **Skills load at session startup.** Changes only take effect after restarting Claude Code / starting a new session.
-- **`<project>/.claude/skills` is blocked by a managed sandbox rule** in this workspace. Writing there (mkdir/cp) fails with "Operation not permitted" and requires `dangerouslyDisableSandbox: true`. The personal `~/.claude/skills` path has the same restriction, so installing/copying the Skill needs the sandbox disabled.
-- `SKILL.md` frontmatter (`name`, `description`) is what drives discovery and auto-triggering. The `description` is the trigger signal — keep it specific about *when* to invoke.
-
-## Skill structure (llm-council)
-
-`SKILL.md` defines a 6-persona structured debate (5 debaters + a Judge who stays silent until the verdict) over a 4-round flow: Opening Positions → Challenges → Rebuttals → Final Verdict. `agents/openai.yaml` mirrors the same roster/flow for an OpenAI-style multi-agent runner, and `references/debate-framework.md` holds the scoring rubric. Keep these three in sync — a change to personas or rounds in one should be reflected in the others.
-
-## sample-repo commands
-
-The sandbox Python environment has **no pytest installed**. Two ways to run the suite:
+Agents do **not** read `skills/` automatically. Install into a discovery path, then start a **new session**:
 
 ```bash
-# If pytest is available:
-cd sample-repo && pytest -q
+./scripts/install-skills.sh                    # Cursor, personal (~/.cursor/skills)
+./scripts/install-skills.sh --target claude    # Claude Code (~/.claude/skills)
+./scripts/install-skills.sh --scope project    # .cursor/skills or .claude/skills in this repo
+./scripts/install-skills.sh --symlink          # symlink from skills/ for live edits
+```
 
-# Sandbox-safe fallback (no pytest needed) — run each test fn directly:
-cd sample-repo && python3 -c "
+Discovery paths:
+
+- **Claude Code:** `~/.claude/skills/<name>/` or `<project>/.claude/skills/<name>/`
+- **Cursor:** `~/.cursor/skills/<name>/` or `<project>/.cursor/skills/<name>/`
+
+After editing under `skills/`, re-run the install script (unless using `--symlink`).
+
+In some managed environments, copying to `~/.cursor/skills` or `.cursor/skills` requires running the script outside the sandbox.
+
+## Skill packages
+
+| Directory | `name` in SKILL.md |
+|-----------|-------------------|
+| `skills/llm-council/` | `llm-council` |
+| `skills/frontend-skills/` | `frontend-design` |
+
+`skills/llm-council/`: 6-persona debate (5 debaters + Judge), 4 rounds, HTML output contract. Keep `SKILL.md`, `agents/openai.yaml`, and `references/debate-framework.md` in sync.
+
+## Acme URL shortener (fixture)
+
+```bash
+cd "Acme URL shortener"
+python3 cli.py shorten https://example.com
+python3 cli.py resolve 1
+```
+
+Tests (no pytest in minimal sandbox):
+
+```bash
+cd "Acme URL shortener" && python3 -c "
 import test_shortener as t
 for n in dir(t):
     if n.startswith('test_'): getattr(t, n)(); print('PASS', n)"
 ```
 
-CLI usage (state is in-memory and resets every invocation — codes do not persist between commands):
-
-```bash
-cd sample-repo
-python3 cli.py shorten https://example.com   # -> https://sh.rt/1
-python3 cli.py resolve 1                      # -> https://example.com
-python3 cli.py stats 1                        # -> https://example.com (N clicks)
-```
-
-`shortener.py` is the core (base-62 `encode`/`decode` + the `Shortener` class with sequential ids starting at 1); `cli.py` is a thin wrapper that constructs a fresh `Shortener` per run.
+State is in-memory; CLI creates a fresh `Shortener` per invocation.

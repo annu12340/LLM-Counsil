@@ -12,6 +12,12 @@ The rubric the LLM Council applies to keep debates technical, adversarial, and d
 
 ## Per-round expectations
 
+### Naive Single-Model Take — the baseline (before Round 1)
+- Produce the answer a single one-shot model gives the *bare* question: no codebase grounding, no debate, no adversarial pressure. 2–4 sentences.
+- Write it in the register such answers genuinely have — agreeable, hedgy, generic best-practice, often "it depends." This is a **fair control**, not a strawman; do not fabricate a deliberately weak answer.
+- End with one line naming why it's insufficient *here*: ungrounded in the real code, hedges instead of committing, surfaces no concrete tradeoff or failure mode.
+- Purpose: make the council's grounded, adversarial, committed verdict legible by contrast — it shows what the structure adds over a one-shot answer.
+
 ### Round 1 — Opening Positions
 - Each debater takes a clear stance, not a survey of options.
 - Ground the stance in the persona's lens (mechanism, theory, systems, risk, user value).
@@ -63,6 +69,7 @@ Fill every field:
 
 ## Anti-patterns to avoid
 
+- A Naive Single-Model Take written as a strawman (deliberately bad) rather than the genuine one-shot answer — it must be a fair baseline or the contrast is dishonest.
 - Vague scale/perf claims with no dimension or number.
 - Personas that all sound the same — each must argue from its lens.
 - Premature consensus in Rounds 1–2.
@@ -74,6 +81,7 @@ Fill every field:
 
 Before emitting the final output, confirm every box. A failed box means the run is incomplete — fix it before finishing.
 
+- [ ] The Naive Single-Model Take is present (2–4 sentences, fair not strawman) with a one-line "why this is risky" note, before the council content.
 - [ ] Peer rating table is present, with column averages, a ranking, **and** the Position → persona reveal.
 - [ ] Every Round 1–3 turn ends with a `Verdict:` line.
 - [ ] The Judge filled **all** Final Verdict fields (best argument, biggest risk, key tradeoff, consensus, recommendation, confidence, next 3 actions).
