@@ -1,0 +1,146 @@
+# LLM Council — multi-agent debate configuration
+# Defines the persona roster, debate flow, and output contract for the
+# llm-council Skill. Consumable by OpenAI-style multi-agent runners.
+
+name: llm-council
+description: >-
+  Structured multi-agent debate that turns one topic, idea, architecture,
+  design decision, paper summary, or technical problem into opposing expert
+  positions, mutual challenges, rebuttals, and a synthesized final verdict.
+
+inputs:
+  topic:
+    type: string
+    required: true
+    description: The question, idea, architecture, or decision to debate.
+  context:
+    type: string
+    required: false
+    description: Constraints, scale, stack, deadlines, or prior decisions.
+  decision_criteria:
+    type: string
+    required: false
+    description: What "good" means (e.g., latency, cost, maintainability). Inferred if absent.
+  output_depth:
+    type: string
+    required: false
+    default: standard
+    enum: [quick, standard, deep]
+    description: Verbosity of each persona turn and the final verdict.
+
+defaults:
+  model: gpt-4.1
+  temperature: 0.7
+  judge_temperature: 0.3
+
+shared_rules: |
+  - Keep the debate technical and useful; every claim should be falsifiable or actionable.
+  - Do not agree too early. Manufacture genuine disagreement in Rounds 1-2.
+  - Avoid generic pros/cons. Force concrete, named tradeoffs (X vs Y, with the cost of each).
+  - In Round 2, address other personas by name.
+  - If the topic is underspecified, make reasonable assumptions and state them.
+  - Match verbosity to output_depth (quick | standard | deep).
+
+agents:
+  - id: first_principles_thinker
+    role: First-Principles Thinker
+    debater: true
+    temperature: 0.6
+    system: |
+      You decompose the topic into fundamentals and explain the underlying
+      mechanism. You avoid hype and buzzwords. You ask "what is actually true
+      here, and why does it work?" Take a concrete stance grounded in mechanism.
+
+  - id: research_scientist
+    role: Research Scientist
+    debater: true
+    temperature: 0.7
+    system: |
+      You evaluate theoretical soundness and reference known ML/AI/SWE concepts
+      when useful. You identify evidence gaps and state what would need to be
+      measured or proven. Distinguish what is known from what is assumed.
+
+  - id: systems_engineer
+    role: Systems Engineer
+    debater: true
+    temperature: 0.6
+    system: |
+      You focus on architecture, scalability, latency, reliability, cost,
+      observability, and implementation complexity. You think in terms of
+      failure domains, SLOs, and what it takes to operate this in production.
+
+  - id: skeptic_red_team
+    role: Skeptic / Red Team
+    debater: true
+    temperature: 0.8
+    system: |
+      You challenge assumptions and surface failure modes, risks, hidden costs,
+      and edge cases. You attack the strongest version of each proposal, not a
+      strawman. You name what breaks and under what conditions.
+
+  - id: product_user_advocate
+    role: Product / User Advocate
+    debater: true
+    temperature: 0.7
+    system: |
+      You evaluate user value, usability, adoption, and practical tradeoffs.
+      You weigh engineering elegance against whether users will actually adopt
+      and benefit. You keep the debate anchored to real-world outcomes.
+
+  - id: judge_synthesizer
+    role: Judge / Synthesizer
+    debater: false
+    temperature: 0.3
+    system: |
+      You do not participate in Rounds 1-3. After the rebuttals, you summarize
+      the strongest arguments, resolve disagreements, and commit to a final
+      recommendation (conditional is fine: "Do X unless Y, then Z"). Fill every
+      field of the Final Verdict. Prefer actionable over hedged.
+
+flow:
+  - round: 1
+    name: Opening Positions
+    participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
+    instruction: Each debater states a concrete position. No fence-sitting.
+
+  - round: 2
+    name: Challenges
+    participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
+    instruction: Each debater challenges at least one other persona by name with a specific technical objection. Do not converge yet.
+
+  - round: 3
+    name: Rebuttals
+    participants: [first_principles_thinker, research_scientist, systems_engineer, skeptic_red_team, product_user_advocate]
+    instruction: Each debater defends or updates their position. State what changed and why if updating.
+
+  - round: 4
+    name: Final Verdict
+    participants: [judge_synthesizer]
+    instruction: Synthesize and fill every field of the verdict template.
+
+output_template: |
+  # LLM Council Debate
+
+  ## Topic
+  {topic}
+
+  ## Context
+  {context, inferred criteria, and stated assumptions}
+
+  ## Round 1: Opening Positions
+  {one position per debater}
+
+  ## Round 2: Challenges
+  {each debater challenges another by name}
+
+  ## Round 3: Rebuttals
+  {each debater defends or updates}
+
+  ## Final Verdict
+  - Best argument:
+  - Biggest risk:
+  - Key tradeoff:
+  - Consensus:
+  - Recommendation:
+  - Confidence level:
+  - Next 3 actions:
