@@ -1,236 +1,210 @@
-# LLM Council — Agent Skill
+# Repo Rescue Rangers
 
-**LLM Council** is a **Cursor / Claude Code Agent Skill** that runs a structured 5-persona debate (plus Judge), blind peer-rates opening arguments, and outputs a committed verdict—**markdown**, an optional **ADR snippet**, and **offline HTML** under [`llm-council-output/`](llm-council-output/).
+### What it is
 
-Use it to pressure-test architecture choices, design decisions, tech comparisons (`X vs Y`), papers, and red-team plans—not a single-shot pros/cons list.
+Three portable Agent Skills covering the repo lifecycle — **prevent** (`semantic-commit-guard`),
+**diagnose** (`git-bisect-ai`), **recover** (`dependency-upgrade-loop`) — each with a `SKILL.md`, a
+working helper script, a reference doc, and OpenAI agent metadata. Canonical content lives in
+`skills/`; `.claude/`, `.cursor/`, `.codex/` are symlinks into it. A validation harness, three
+resettable demo repos, a landing page, and a workflow diagram round it out.
 
-**Landing page:** open [`index.html`](index.html) in a browser (offline-friendly).
+### Verdict: strong hackathon project — genuinely shippable, not a mockup
 
-## Quick start
+Verified rather than trusted:
 
-1. **Install** all skills: `./scripts/install-skills.sh` (see [Install](#install)).
-2. **Open** this repo in Cursor or Claude Code and start a **new session** (skills load at startup).
-3. **Invoke** with a trigger phrase, for example:
+- **`scripts/validate-skills.sh` exits 0** — metadata, folder shape, shell syntax, and live smoke
+  tests of all three helpers in throwaway git repos all pass.
+- **The scripts are real, not props.** `bisect-run.sh` correctly maps to git bisect's exit-code
+  contract (0/125/bad/abort), collapses stray nonzero codes so the test can't accidentally abort the
+  search, handles `timeout`/`gtimeout` absence gracefully, and writes per-commit JSON forensics.
 
-```text
-LLM Council: Should we use Kafka or RabbitMQ for ~10k events/sec? Small ops team; need replay.
-```
+Three [Agent Skills](https://agentskills.io/) that cover the repo lifecycle — **prevent**, **diagnose**, **recover**.
 
-**Code-aware** (reads the fixture repo before debating):
+| Skill | Role | Status |
+|---|---|---|
+| [git-bisect-ai](skills/git-bisect-ai/) | Find the exact commit that introduced a regression | Implemented (+ `scripts/bisect-run.sh`) |
+| [semantic-commit-guard](skills/semantic-commit-guard/) | Review staged diffs and install a deterministic pre-commit fast gate | Implemented (+ `scripts/install-hook.sh`) |
+| [dependency-upgrade-loop](skills/dependency-upgrade-loop/) | Upgrade stale deps and rewrite code until the build passes | Implemented (+ `scripts/build-probe.sh`) |
 
-```text
-/llm-council Should Acme URL shortener use Postgres or Redis for persistence?
-```
+See [skills-landing.html](skills-landing.html) for the full marketing page and demo scenarios.
 
-4. **Review** example HTML: [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) · [`postgres-vs-redis.html`](llm-council-output/postgres-vs-redis.html)
+## Layout
 
-Full procedure and output contract: [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
-
-## Trigger phrases
-
-The skill auto-invokes when the user message includes any of:
-
-| Trigger | Examples |
-|---------|----------|
-| Council | `council`, `LLM Council`, `/llm-council` |
-| Debate / red team | `debate`, `pressure-test`, `red team`, `red-team` |
-| Decisions | `ADR`, `architecture decision`, `which should we use`, `Kafka vs RabbitMQ` |
-| Code-aware | A repo path or “this codebase” with a design or technology question |
-
-Optional context and criteria can be omitted—the skill infers defaults and proceeds.
-
-## What’s in this repo
-
-| Path | Purpose |
-|------|---------|
-| [`skills/`](skills/) | **Skill packages** (source of truth) — install with [`scripts/install-skills.sh`](scripts/install-skills.sh) |
-| [`skills/llm-council/`](skills/llm-council/) | Council debate skill — rubric, architecture reference, HTML assets, OpenAI agent config |
-| [`skills/frontend-skills/`](skills/frontend-skills/) | Frontend design skill (`name: frontend-design`) |
-| [`Acme URL shortener/`](Acme%20URL%20shortener/) | **Code-aware fixture** — minimal URL shortener to debate against real code |
-| [`llm-council-output/`](llm-council-output/) | **Example debates** — self-contained HTML (offline-shareable) |
-| [`CLAUDE.md`](CLAUDE.md) | Authoring notes (sync, sandbox, test commands) |
-
-## LLM Council at a glance
-
-**Flow** (five debaters; Judge silent until the end):
-
-1. **Opening Positions** — concrete stance per persona  
-2. **Peer Rating (anonymized)** — blind 1–10 scoring of Round 1 arguments  
-3. **Challenges** — named, technical objections  
-4. **Rebuttals** — defend or update positions  
-5. **Final Verdict** — recommendation, risks, tradeoffs, next 3 actions  
-
-**Personas:** First-Principles Thinker, Research Scientist, Systems Engineer, Skeptic / Red Team, Product / User Advocate, Judge / Synthesizer. For security topics, swap Product Advocate for **Security Engineer** (see `SKILL.md`).
-
-**Outputs:**
-
-- Markdown debate (rounds, peer-rating table, verdict, optional ADR snippet)
-- Self-contained HTML under `llm-council-output/` (inlined CSS/JS; convergence grid, peer heatmap, confidence gauge)
-
-**Code-aware mode:** If the topic references a repo or path, the agent reads `README`, entrypoints, core modules, and tests *before* Round 1 so arguments match what the code actually does.
-
-## Why this is a strong Agent Skill
-
-- **Procedure, not vibes** — numbered rounds; Judge only speaks in the final verdict  
-- **Progressive disclosure** — rubric in [`references/debate-framework.md`](skills/llm-council/references/debate-framework.md); architecture in [`references/architecture.md`](skills/llm-council/references/architecture.md)  
-- **Deterministic output contract** — markdown template + HTML class/`data-*` schema in `SKILL.md`  
-- **Bundled assets** — `assets/council-style.css` and `assets/council.js` inlined into each HTML artifact  
-- **Portable** — [`agents/openai.yaml`](skills/llm-council/agents/openai.yaml) mirrors the same roster and flow  
-
-## Skill packages (`skills/`)
-
-```
-skills/
-├── llm-council/
-│   ├── SKILL.md
-│   ├── agents/openai.yaml
-│   ├── references/debate-framework.md
-│   └── assets/
-└── frontend-skills/
-    └── SKILL.md                    # name: frontend-design
-```
-
-The `skills/` directory is **not** auto-loaded by agents. Install into a discovery path (below), then start a **new session**.
-
-Keep `skills/llm-council/` files **in sync** when you change personas, rounds, or the HTML contract.
-
-## Install
-
-### Install script (recommended)
-
-From the repo root:
-
-```bash
-./scripts/install-skills.sh
-```
-
-This installs **every** package under `skills/` using each skill’s `name:` from `SKILL.md` frontmatter (e.g. `frontend-skills/` → `frontend-design`).
-
-| Option | Values | Default |
-|--------|--------|---------|
-| `--target` | `cursor`, `claude` | `cursor` |
-| `--scope` | `personal`, `project` | `personal` |
-| `--symlink` | link instead of copy | off |
-| `--dry-run` | print only | off |
-
-Examples:
-
-```bash
-# Cursor, all projects (personal)
-./scripts/install-skills.sh
-
-# Claude Code
-./scripts/install-skills.sh --target claude
-
-# This repo only (commit .cursor/skills for teammates)
-./scripts/install-skills.sh --scope project
-
-# Edit skills/ in place; re-run after changes
-./scripts/install-skills.sh --symlink
-```
-
-Then **start a new Agent chat** (skills load at session startup).
-
-### Manual install
-
-| Environment | Personal | Project-scoped |
-|-------------|----------|----------------|
-| **Cursor** | `~/.cursor/skills/<name>/` | `.cursor/skills/<name>/` |
-| **Claude Code** | `~/.claude/skills/<name>/` | `.claude/skills/<name>/` |
-
-```bash
-cp -R skills/llm-council ~/.cursor/skills/llm-council
-cp -R skills/frontend-skills ~/.cursor/skills/frontend-design
-```
-
-**Discovery:** `description` in `SKILL.md` frontmatter drives auto-triggering. After edits under `skills/`, re-run the install script (or use `--symlink`).
-
-In some managed environments, writing to `~/.cursor/skills` or `.cursor/skills` may require running the script in a normal terminal (outside the sandbox).
-
-## How to invoke
-
-**Generic debate:**
+Canonical skill content lives in `skills/`. IDE-specific directories are symlinks:
 
 ```text
-Run an LLM Council debate: Should we use Kafka or RabbitMQ for our event pipeline?
-Context: ~10k events/sec, at-least-once delivery, small ops team.
-Criteria: operational simplicity, replay, cost.
+skills/                          ← edit skills here
+.claude/skills/  → ../../skills/
+.cursor/skills/  → ../../skills/
+.codex/skills/   → ../../skills/
 ```
 
-**Against the Acme fixture** (see [`Acme URL shortener/sample-questions`](Acme%20URL%20shortener/sample-questions)):
+## Install in your project
+
+Copy the skill folders from `skills/` into your agent's skills directory:
+
+| Agent | Destination |
+|---|---|
+| Claude Code | `YOUR_PROJECT/.claude/skills/` |
+| Cursor | `YOUR_PROJECT/.cursor/skills/` |
+| Codex | `YOUR_PROJECT/.codex/skills/` |
+
+```bash
+# Example: install all three for Cursor
+mkdir -p YOUR_PROJECT/.cursor/skills
+cp -r skills/git-bisect-ai skills/semantic-commit-guard skills/dependency-upgrade-loop \
+  YOUR_PROJECT/.cursor/skills/
+```
+
+No package manager or build step required. Restart the agent session if skills are not picked up automatically.
+
+## Try the demos
+
+Each demo under `demo-repos/` has a `setup.sh` that materializes a throwaway git repo for one skill.
+Run a setup script, then follow the prompt it prints:
+
+```bash
+cd demo-repos/bisect-demo
+bash setup.sh
+```
+
+Re-run that demo's `setup.sh` to reset it.
+
+## Validate the skills
+
+Run the repo-level validation harness before publishing or copying the skills:
+
+```bash
+scripts/validate-skills.sh
+```
+
+It validates skill metadata, shell syntax, installable skill folder shape, and smoke tests the bundled helpers in temporary git repos.
+
+## Technical details
+
+### Repository architecture
+
+Canonical skill content lives once, under `skills/<name>/`. The agent-specific
+directories (`.claude/skills/`, `.cursor/skills/`, `.codex/skills/`) are **symlinks**
+into that tree, so every tool sees identical content and there is no copy to keep in
+sync. Each skill's folder name matches its frontmatter `name:` (e.g.
+`skills/semantic-commit-guard/` → `name: semantic-commit-guard`), which is also the
+invocation token (`/semantic-commit-guard`) and the `$name` used in `agents/openai.yaml`.
+
+Each skill folder follows a fixed shape:
 
 ```text
-/llm-council Should this repo use Postgres or Redis for persistence?
+skills/<name>/
+├── SKILL.md          # frontmatter (name, description) + the skill's instructions
+├── scripts/          # executable helpers the skill drives
+├── references/       # detail loaded only when needed (progressive disclosure)
+└── agents/openai.yaml  # UI metadata; default_prompt must mention $<name>
 ```
 
-```text
-/llm-council Is base-62 the right encoding for this shortener, or should we use UUIDs?
-```
+`SKILL.md` is the single source of truth for behavior. Helpers resolve their own path
+at runtime via `find "$(git rev-parse --show-toplevel)" -path '*/<name>/scripts/...'`,
+so a skill works regardless of which agent directory it was installed under.
 
-**Optional inputs:**
+### `git-bisect-ai` — `scripts/bisect-run.sh`
 
-| Input | Required | Notes |
-|-------|----------|--------|
-| Topic / question | Yes | What to debate |
-| Context | No | Constraints, stack, scale, deadlines |
-| Decision criteria | No | Inferred if omitted |
-| Output depth | No | `quick`, `standard` (default), or `deep` |
+The wrapper handed to `git bisect run`. Its exit code **is** git bisect's verdict, not
+normal shell semantics:
 
-## Acme URL shortener (code-aware fixture)
+| Exit code | Meaning to git bisect |
+|---|---|
+| `0` | good (test passed) |
+| `125` | skip (commit can't be tested, e.g. won't build) |
+| `1`–`124`, `126` | bad (test failed) |
+| `128`–`255` | abort the entire bisect |
 
-[`Acme URL shortener/`](Acme%20URL%20shortener/) is a minimal in-memory URL shortener with base-62 codes. It exists so council debates cite real modules, tests, and limitations—not an imagined system.
+| Flag | Effect |
+|---|---|
+| `--test "<cmd>"` | **Required.** Command whose exit code defines good/bad. |
+| `--setup "<cmd>"` | Run before the test (install deps, compile). |
+| `--timeout <s>` | Kill the test after N seconds; a hang counts as bad. |
+| `--setup-timeout <s>` | Separate limit for the setup step. |
+| `--log-dir <path>` | Save per-commit `setup`/`test` logs and a JSON summary. |
+| `--build-is-bug` | A failing setup means **bad**, not skip — for hunting broken builds. |
+| `--invert` | A *passing* test is bad — finds when a failing test started passing. |
+| `--allow-test-skip` | Preserve a test exit `125` as skip rather than collapsing it. |
 
-| File | Role |
-|------|------|
-| `shortener.py` | `encode`/`decode` and `Shortener` (shorten, resolve, stats) |
-| `cli.py` | CLI: `shorten`, `resolve`, `stats` |
-| `test_shortener.py` | Test suite |
+Key safety behavior: any nonzero test exit (including `124` timeout, `125`, `128`) is
+**collapsed to plain `1` (bad)** unless `--allow-test-skip` is set, so the test command
+can never accidentally abort the search. Timeouts use `timeout`/`gtimeout` if present and
+degrade to running untimed (with a warning) otherwise.
 
-**CLI** (state resets each invocation; codes do not persist between commands):
+### `semantic-commit-guard` — `scripts/install-hook.sh`
 
-```bash
-cd "Acme URL shortener"
-python3 cli.py shorten https://example.com   # -> https://sh.rt/1
-python3 cli.py resolve 1                      # -> https://example.com
-python3 cli.py stats 1                        # -> https://example.com (N clicks)
-```
+Installs a fast, deterministic `pre-commit` hook into `.git/hooks/`. An existing hook is
+backed up to `pre-commit.backup` (then `.backup.1`, `.backup.2`, …) before replacement;
+re-running is idempotent. The hook scans **staged content only** (`--cached`,
+`--diff-filter=ACMR`, NUL-safe) and blocks the commit (exit 1) on:
 
-**Tests:**
+1. **Secret-like files** — `.env`, `*.pem`, `*.key`, `*id_rsa`/`id_dsa`/`id_ecdsa`/`id_ed25519`.
+2. **Secret-like added lines** — key/secret/password/token assignments of a 16+ char
+   high-entropy value, or a `-----BEGIN … PRIVATE KEY-----` header. The offending value is
+   **redacted** in output; only `file:line` is shown.
+3. **Oversized blobs** — staged objects larger than 1 MB.
 
-```bash
-cd "Acme URL shortener" && pytest -q
-```
+It deliberately does **not** attempt the semantic architecture/docs review — that is the
+agent's on-demand job. The hook prints a reminder, and a reviewed finding can be overridden
+with `git commit --no-verify`.
 
-If `pytest` is not available:
+### `dependency-upgrade-loop` — `scripts/build-probe.sh`
 
-```bash
-cd "Acme URL shortener" && python3 -c "
-import test_shortener as t
-for n in dir(t):
-    if n.startswith('test_'): getattr(t, n)(); print('PASS', n)"
-```
+Runs a build/verify command, captures the full log, and surfaces the **first** root error
+so the agent fixes the cause rather than chasing downstream cascades.
 
-More detail: [`Acme URL shortener/README.md`](Acme%20URL%20shortener/README.md).
+| Exit code | Meaning |
+|---|---|
+| `0` | build/verify succeeded |
+| `1` | failed (highlighted root error + log path printed) |
+| `124` | timed out |
+| `2` | usage error |
 
-## Development workflow
+| Flag | Effect |
+|---|---|
+| `--cmd "<cmd>"` | **Required.** Build/test/typecheck command; exit 0 = healthy. |
+| `--log <path>` | Where to write the full output (default `$TMPDIR/build-probe.log`). |
+| `--timeout <s>` | Kill after N seconds; a hang is a failure. |
+| `--grep "<regex>"` | Extra error pattern to highlight on top of built-ins. |
+| `--summary-lines <n>` | How many matching error lines to print (default 15). |
+| `--quiet-pass` | On success, save the log without echoing it. |
 
-1. Edit files under `skills/` (keep `llm-council` SKILL.md, `agents/openai.yaml`, and `references/debate-framework.md` aligned).
-2. Run `./scripts/install-skills.sh` (or re-copy manually).
-3. Restart the agent session.
-4. Run a debate against `Acme URL shortener/` or your own topic.
-5. Commit example output under `llm-council-output/` when useful.
+On failure it greps the saved log for a built-in error vocabulary (`error`, `cannot find`,
+`no module named`, `unresolved`, `peer dep`, `ImportError`, …) and prints the first matching
+lines, which is where the root cause usually lives.
 
-See [`CLAUDE.md`](CLAUDE.md) for sandbox and sync notes.
+### Validation harness — `scripts/validate-skills.sh`
 
-## Example output
+The source of truth for "does it work?" Exits `0` only when every check passes:
 
-| Artifact | Topic |
-|----------|--------|
-| [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) | Messaging / event pipeline |
-| [`postgres-vs-redis.html`](llm-council-output/postgres-vs-redis.html) | Persistence (code-aware fixture) |
+- **Metadata** — frontmatter `name` is hyphen-case, ≤64 chars, no leading/trailing/double
+  hyphens; `description` present; SKILL.md body ≤500 lines.
+- **`agents/openai.yaml` shape** — has `interface`, `display_name`, `short_description`, and a
+  `default_prompt` mentioning the exact `$<name>`.
+- **Folder shape** — only `SKILL.md`, `scripts/`, `references/`, `agents/`, `assets/` allowed.
+- **Shell syntax** — `bash -n` on every `*.sh` (skills, scripts, and demo setups).
+- **Smoke tests** — each helper is exercised in a throwaway git repo: a planted regression for
+  `bisect-run`, a leaked-secret diff for the hook, and a failing build for `build-probe`.
 
-Open any `.html` file in a browser—no server required. Markdown structure matches [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
+### Strengths
 
-## License
+1. **The skill writing is excellent and consistent.** Every `SKILL.md` follows the same template —
+   Operating Contract → Battle Card → numbered Workflow → Pitfalls → Rescue Receipt — and the
+   `description` fields are written as real trigger phrases ("used to work," "stopped working"). The
+   progressive-disclosure split (lean SKILL.md, detail pushed to `references/`) matches Agent Skills
+   best practice.
+2. **Hard-won correctness in the details.** Bisect runner exit-code semantics; the guard reviewing
+   `--cached` not the working tree and refusing to print full secrets; the upgrade loop's "one
+   logical change per verify run" and "fix the *first* root error, not the cascade."
+3. **Portability is real**, via the symlink-into-`skills/` design, and the runtime `find` for the
+   script path means it works regardless of which agent dir it's installed under.
+4. **Demos are well-designed** — each `setup.sh` plants a scenario that *only* that skill resolves,
+   and they're deliberately kept separate.
 
-No license file is included. Add one if you plan to distribute the skill publicly.
+
+### Bottom line
+
+Well above typical hackathon quality: the skills are correct, validated, documented, and portable,
+with helper scripts that show real engineering judgment.
