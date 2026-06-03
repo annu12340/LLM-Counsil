@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council — Kafka vs RabbitMQ</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #181b25;
+    --panel-2: #1f2330;
+    --border: #2a2f3e;
+    --text: #e6e9f0;
+    --muted: #9aa3b8;
+    --accent: #7c9cff;
+    --accent-2: #b48cff;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --chip: #232838;
+    --p1: #7c9cff; /* First-Principles */
+    --p2: #5ec8d8; /* Research */
+    --p3: #6ee7a8; /* Systems */
+    --p4: #f8a35c; /* Skeptic */
+    --p5: #c79cff; /* Product */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2540 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.hero {
+    text-align: center;
+    padding: 32px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(124,156,255,.12);
+    border: 1px solid rgba(124,156,255,.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 34px;
+    margin: 0 0 12px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); font-size: 16px; max-width: 640px; margin: 0 auto; }
+
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    font-size: 13px;
+    color: var(--bg);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 16px 0;
+  }
+  .context-grid { display: grid; gap: 14px; }
+  .criteria { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 640px){ .criteria { grid-template-columns: 1fr; } }
+  .criteria .crit {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  .criteria .crit b { color: var(--accent); }
+
+  .turn { margin: 14px 0; padding-left: 16px; border-left: 3px solid var(--border); }
+  .speaker { font-weight: 700; }
+  .p1 { color: #7c9cff; } /* First-Principles */
+  .p2 { color: #5ec8d8; } /* Research */
+  .p3 { color: #6ee7a8; } /* Systems */
+  .p4 { color: #f8a35c; } /* Skeptic */
+  .p5 { color: #c79cff; } /* Product */
+  .judge { color: var(--warn); }
+  .arrow { color: var(--muted); font-weight: 400; }
+
+  .pverdict {
+    margin-top: 8px; font-size: 13px; color: var(--muted);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-2);
+    border-radius: 8px; padding: 7px 12px;
+  }
+  .pverdict b { color: var(--accent-2); font-weight: 700; letter-spacing: .04em; }
+
+  /* anonymized peer-rating */
+  .anon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 18px; }
+  @media (max-width: 640px){ .anon-grid { grid-template-columns: 1fr; } }
+  .anon {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; font-size: 14px;
+  }
+  .anon .tag {
+    display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .1em;
+    color: var(--bg); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    padding: 2px 10px; border-radius: 6px; margin-bottom: 8px;
+  }
+  .rate-table th, .rate-table td { text-align: center; }
+  .rate-table th:first-child, .rate-table td:first-child { text-align: left; white-space: nowrap; }
+  .rate-table td .note { display:block; color: var(--muted); font-size: 11px; line-height: 1.3; margin-top: 2px; }
+  .rate-table .self { color: var(--muted); }
+  .rate-table .avg td { font-weight: 700; border-top: 2px solid var(--border); }
+  .score { font-weight: 700; }
+  .s-hi { color: var(--good); }
+  .s-mid { color: var(--warn); }
+  .s-lo { color: var(--bad); }
+  .rank { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+  .rank li {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 14px;
+  }
+  .rank .medal { font-size: 18px; width: 24px; text-align: center; }
+  .rank .sc { margin-left: auto; font-weight: 700; }
+  .reveal { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .reveal b { color: var(--text); }
+
+  .verdict { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 8px 24px 24px; }
+  .vrow { padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .vrow:last-child { border-bottom: none; }
+  .vlabel { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin-bottom: 6px; }
+  .pill {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    padding: 3px 12px; border-radius: 999px; margin-left: 8px;
+  }
+  .pill.high { background: rgba(74,222,128,.15); color: var(--good); border:1px solid rgba(74,222,128,.4); }
+
+  ol.actions { counter-reset: step; list-style: none; padding: 0; margin: 8px 0 0; }
+  ol.actions li {
+    position: relative; padding: 14px 14px 14px 52px; margin: 10px 0;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  ol.actions li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 14px; top: 14px;
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--bg); font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .bottom {
+    margin-top: 40px; padding: 22px 24px;
+    background: linear-gradient(135deg, rgba(124,156,255,.12), rgba(180,140,255,.10));
+    border: 1px solid rgba(124,156,255,.3); border-radius: 14px;
+  }
+  .bottom .vlabel { color: var(--accent-2); }
+
+  code { background: var(--chip); padding: 2px 7px; border-radius: 6px; font-size: .9em; color: #ffd9a8; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 56px; }
+  p { margin: 8px 0; }
+
+  /* persona avatars */
+  .avatar { display: inline-block; margin-right: 6px; font-style: normal; }
+
+  /* stance-evolution convergence grid */
+  .evo {
+    display: grid;
+    grid-template-columns: 160px repeat(3, 1fr) 1.5fr;
+    gap: 8px; align-items: center;
+    margin-top: 6px;
+  }
+  @media (max-width: 640px){ .evo { grid-template-columns: 110px repeat(3, 1fr); } .evo .evo-final { display:none; } .evo .evo-final.evo-h { display:block; grid-column: 1 / -1; } }
+  .evo .evo-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
+  .evo .evo-name { font-size: 13px; font-weight: 600; }
+  .evo .chip {
+    position: relative; text-align: center; padding: 9px 6px;
+    border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .evo .chip[data-stance="kafka"]     { background: rgba(124,156,255,.18); color: var(--accent); border-color: rgba(124,156,255,.4); }
+  .evo .chip[data-stance="rabbit"]    { background: rgba(251,191,36,.16);  color: var(--warn);   border-color: rgba(251,191,36,.4); }
+  .evo .chip[data-stance="neither"]   { background: rgba(74,222,128,.15);  color: var(--good);   border-color: rgba(74,222,128,.4); }
+  .evo .chip[data-stance="undecided"] { background: rgba(154,163,184,.14); color: var(--muted);  border-color: var(--border); }
+  .evo .chip .chg {
+    position: absolute; top: -8px; right: -8px;
+    width: 19px; height: 19px; border-radius: 50%;
+    background: var(--accent-2); color: var(--bg);
+    font-size: 12px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .evo .evo-final { font-size: 12px; color: var(--muted); padding-left: 4px; }
+
+  /* peer-rating heatmap */
+  .rate-table td[data-score="8"],
+  .rate-table td[data-score="9"],
+  .rate-table td[data-score="10"] { background: rgba(74,222,128,.13); }
+  .rate-table td[data-score="6"],
+  .rate-table td[data-score="7"]  { background: rgba(251,191,36,.12); }
+  .rate-table td[data-score="3"],
+  .rate-table td[data-score="4"],
+  .rate-table td[data-score="5"]  { background: rgba(248,113,113,.13); }
+  .rate-table td.self {
+    background: repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 5px, var(--panel) 5px, var(--panel) 10px);
+  }
+
+  /* ranking bar chart */
+  .rank li { position: relative; overflow: hidden; }
+  .rank .bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: calc(var(--score) / 10 * 100%);
+    background: var(--p1); opacity: .20;
+    border-left: 3px solid var(--bar-color, var(--p1));
+    z-index: 0;
+  }
+  .rank .bar.p1 { background: var(--p1); --bar-color: var(--p1); }
+  .rank .bar.p2 { background: var(--p2); --bar-color: var(--p2); }
+  .rank .bar.p3 { background: var(--p3); --bar-color: var(--p3); }
+  .rank .bar.p4 { background: var(--p4); --bar-color: var(--p4); }
+  .rank .bar.p5 { background: var(--p5); --bar-color: var(--p5); }
+  .rank .bar.glow { box-shadow: 0 0 18px 2px var(--bar-color); opacity: .28; }
+  .rank li > .medal, .rank li > b, .rank li > .sc { position: relative; z-index: 1; }
+
+  /* confidence gauge */
+  .conf-row { display: flex; align-items: center; gap: 22px; }
+  .conf-text { flex: 1; }
+  .gauge {
+    flex: 0 0 auto; width: 76px; height: 76px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: conic-gradient(var(--good) calc(var(--val, 0) * 1%), var(--border) 0);
+  }
+  .gauge::before {
+    content: ''; grid-area: 1 / 1;
+    width: 54px; height: 54px; border-radius: 50%; background: var(--panel-2);
+  }
+  .gauge .val { grid-area: 1 / 1; z-index: 1; font-weight: 700; font-size: 14px; color: var(--good); }
+  @media (max-width: 640px){ .conf-row { flex-direction: column; align-items: flex-start; } }
+
+  /* scroll-reveal */
+  @media (prefers-reduced-motion: no-preference) {
+    .turn, .card, .evo { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+    .turn.in, .card.in, .evo.in { opacity: 1; transform: none; }
+    .card .turn:nth-child(1) { transition-delay: .04s; }
+    .card .turn:nth-child(2) { transition-delay: .12s; }
+    .card .turn:nth-child(3) { transition-delay: .20s; }
+    .card .turn:nth-child(4) { transition-delay: .28s; }
+    .card .turn:nth-child(5) { transition-delay: .36s; }
+  }
+</style>
+<noscript><style>.turn, .card, .evo { opacity: 1 !important; transform: none !important; }</style></noscript>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">⚖ LLM Council Debate</span>
+    <h1>Kafka vs RabbitMQ for <code>tiny-shortener</code></h1>
+    <p class="subtitle">A structured, adversarial debate among five expert personas, synthesized into a decisive recommendation.</p>
+  </header>
+
+  <h2>Topic</h2>
+  <div class="card">
+    Should this product use <b>Kafka</b> or <b>RabbitMQ</b> as the queue for handling large-scale load?
+  </div>
+
+  <h2>Context</h2>
+  <div class="card context-grid">
+    <p>The repo <code>sample-repo</code> is <b>tiny-shortener</b>: a ~50-line, single-process, <b>in-memory</b> URL shortener exposed as a CLI. State lives in three Python dicts (<code>_urls</code>, <code>_clicks</code>, <code>_next_id</code>) and is <b>discarded on every invocation</b> — the README explicitly says codes don't persist between commands. There is no service, no HTTP layer, no database, and no message queue anywhere in the codebase.</p>
+    <p>So two questions are tangled together, and the council addresses both: <b>the literal question</b> (Kafka vs RabbitMQ for throughput) and <b>the premise</b> (does this product need <i>either</i> right now?).</p>
+    <div>
+      <div class="vlabel">Inferred decision criteria</div>
+      <div class="criteria">
+        <div class="crit"><b>1. Fit to current need</b> — does adding this solve a problem the product has today?</div>
+        <div class="crit"><b>2. Throughput &amp; ordering</b> — when load arrives, what does each give us?</div>
+        <div class="crit"><b>3. Operational cost</b> — people, infra, and failure modes you take on.</div>
+        <div class="crit"><b>4. Reversibility</b> — how expensive is it to choose wrong?</div>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-top:6px"><b>Assumption:</b> "large scale load" is aspirational; there is no current traffic, schema, or persistence to scale.</p>
+  </div>
+
+  <h2><span class="num">1</span> Round 1 — Opening Positions</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> A queue exists to <i>decouple producers from consumers in time</i> — you reach for one when work is produced faster than consumed, or when a consumer fails independently. This product does neither: <code>shorten</code> and <code>resolve</code> are synchronous, sub-microsecond dict operations. <b>Position: neither — the question is premature; the missing primitive is durable storage, not a broker.</b>
+      <div class="pverdict"><b>Verdict:</b> Neither — the missing primitive is durable storage.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> The two have categorically different models. Kafka is a <b>distributed, partitioned, replayable log</b> (consumers track offsets; messages are retained and re-readable). RabbitMQ is a <b>smart broker</b> doing per-message routing and ack/redelivery, draining as consumers ack. The deciding variable is replay/multi-consumer/event-history (Kafka) vs transient task dispatch with complex routing (RabbitMQ) — and nothing in the codebase tells us which. <b>Position: undecidable on current evidence; define the workload first.</b>
+      <div class="pverdict"><b>Verdict:</b> Undecidable — define the workload before choosing.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> At genuine scale, a shortener's hot path is <b>read-heavy resolves</b> — a caching + datastore problem (Redis/Cassandra/DynamoDB), not a queue problem. A queue earns its place for the async slice: <b>click-analytics ingestion</b> — append-only, high-volume, multi-consumer, replay-valuable, which is Kafka's exact shape. RabbitMQ chokes when queues back up. <b>Position: if/when a queue is needed, it's the analytics firehose — and that's Kafka.</b>
+      <div class="pverdict"><b>Verdict:</b> If anything, Kafka — for the analytics firehose.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> The real risk isn't the broker choice — it's <b>resume-driven-architecting a CLI that loses its data on exit</b>. Either choice means a multi-node distributed system serving a product with zero users and no database: months of ops burden, on-call for a broker, and you still can't persist one short code across two calls. <b>Position: adding either now is net-negative; it's premature scaling.</b>
+      <div class="pverdict"><b>Verdict:</b> Adding either now is net-negative — premature scaling.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Users care that links resolve fast and stats are roughly right. Neither needs a queue today; it needs codes to survive past one command — the #1 actual defect. A queue becomes user-visible later as "analytics delayed but never lost." <b>Position: defer the queue; priority is persistence, then async analytics — at which point lean Kafka.</b>
+      <div class="pverdict"><b>Verdict:</b> Defer the queue; persistence first, then lean Kafka.</div></div>
+  </div>
+
+  <h2><span class="num">★</span> Anonymized Peer Rating</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">The five opening positions were stripped of their author labels and shuffled. Each persona then scored the others <b>blind</b> (own position = <span class="self">—</span>), so the numbers reflect argument quality, not who said it. Composite 1–10 = analytical <b>rigor</b> + <b>usefulness</b>.</p>
+    <div class="anon-grid">
+      <div class="anon"><span class="tag">Position A</span> If/when a queue is needed it's the click-analytics firehose, and that shape is Kafka; resolves are a datastore problem, not a queue one.</div>
+      <div class="anon"><span class="tag">Position B</span> Adopting either now is net-negative — it's a distributed system for a stateless CLI with no users; the risk is premature scaling.</div>
+      <div class="anon"><span class="tag">Position C</span> A queue's only job is temporal producer/consumer decoupling, which this product doesn't have; the missing primitive is durable storage.</div>
+      <div class="anon"><span class="tag">Position D</span> Defer the queue; the #1 user-facing defect is that codes don't persist — fix persistence, then async analytics, then lean Kafka.</div>
+      <div class="anon"><span class="tag">Position E</span> The two are categorically different models; the choice is undecidable on current evidence — define the workload first.</div>
+    </div>
+    <table class="rate-table">
+      <tr><th>Rater \ Position</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+      <tr>
+        <td><span class="p1"><span class="avatar">🧱</span>First-Principles</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">assumes a fan-out not in evidence</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">reframes to premature scaling</span></td>
+        <td class="self">—</td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">"lean Kafka" is a leap</span></td>
+        <td data-score="9"><span class="score s-hi">9</span><span class="note">names the deciding variable</span></td>
+      </tr>
+      <tr>
+        <td><span class="p2"><span class="avatar">🔬</span>Research Scientist</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">"Kafka-shaped" without a rate</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">right risk, slightly absolutist</span></td>
+        <td data-score="9"><span class="score s-hi">9</span><span class="note">correct primitive: storage first</span></td>
+        <td class="self">—</td>
+        <td class="self">—</td>
+      </tr>
+      <tr>
+        <td><span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span></td>
+        <td class="self">—</td>
+        <td data-score="7"><span class="score s-hi">7</span><span class="note">ignores cheap reversibility</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">fundamentals are sound</span></td>
+        <td data-score="7"><span class="score s-hi">7</span><span class="note">pragmatic sequencing</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">good rule, light on action</span></td>
+      </tr>
+      <tr>
+        <td><span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span></td>
+        <td data-score="5"><span class="score s-lo">5</span><span class="note">no workload numbers</span></td>
+        <td class="self">—</td>
+        <td data-score="9"><span class="score s-hi">9</span><span class="note">nails the real gap</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">defers, then undoes it</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">rigorous; alone not actionable</span></td>
+      </tr>
+      <tr>
+        <td><span class="p5"><span class="avatar">👤</span>Product Advocate</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">ignores the user's real defect</span></td>
+        <td data-score="7"><span class="score s-hi">7</span><span class="note">no roadmap attached to "no"</span></td>
+        <td data-score="7"><span class="score s-hi">7</span><span class="note">correct but not actionable</span></td>
+        <td class="self">—</td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">a rule users can act on</span></td>
+      </tr>
+      <tr class="avg">
+        <td>Average</td>
+        <td><span class="s-lo">5.8</span></td>
+        <td><span class="s-hi">7.5</span></td>
+        <td><span class="s-hi">8.3</span></td>
+        <td><span class="s-mid">6.3</span></td>
+        <td><span class="s-hi">8.3</span></td>
+      </tr>
+    </table>
+    <ol class="rank">
+      <li><span class="bar p1 glow" style="--score:8.3"></span><span class="medal">🥇</span> <b>Position C</b> &amp; <b>Position E</b> — tie, strongest blind scores <span class="sc">8.3</span></li>
+      <li><span class="bar p4" style="--score:7.5"></span><span class="medal">🥈</span> <b>Position B</b> — correct risk framing, a touch absolutist <span class="sc">7.5</span></li>
+      <li><span class="bar p5" style="--score:6.3"></span><span class="medal">🥉</span> <b>Position D</b> — pragmatic but undercut by a premature "Kafka" <span class="sc">6.3</span></li>
+      <li><span class="bar p3" style="--score:5.8"></span><span class="medal">4️⃣</span> <b>Position A</b> — pattern-matched to Kafka without a measured workload <span class="sc">5.8</span></li>
+    </ol>
+    <p class="reveal"><b>Reveal:</b> A = <span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span> · B = <span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span> · C = <span class="p1"><span class="avatar">🧱</span>First-Principles Thinker</span> · D = <span class="p5"><span class="avatar">👤</span>Product Advocate</span> · E = <span class="p2"><span class="avatar">🔬</span>Research Scientist</span>. The blind scores foreshadowed the verdict — the First-Principles and Research positions out-rated the ones that jumped to a broker.</p>
+  </div>
+
+  <h2><span class="num">2</span> Round 2 — Challenges</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker <span class="arrow">→ Systems Engineer:</span></span> You jumped to "analytics firehose = Kafka," but assumed a fan-out workload that doesn't exist in this repo. <code>stats</code> is a synchronous dict lookup. Name the actual producer rate and consumer count — without those numbers, "it's Kafka-shaped" is pattern-matching, not analysis.
+      <div class="pverdict"><b>Verdict:</b> Name the producer rate, or "Kafka-shaped" is just pattern-matching.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist <span class="arrow">→ Product / User Advocate:</span></span> "Then lean Kafka" smuggles in a conclusion. Kafka's operational floor — partition planning, consumer-group rebalancing, offset management — is <i>not</i> lean for a small team. If analytics volume is &lt;10k events/sec, a Postgres table or Redis stream handles it with a fraction of the cognitive load.
+      <div class="pverdict"><b>Verdict:</b> "Lean Kafka" hides Kafka's real operational floor.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer <span class="arrow">→ Skeptic:</span></span> The product is a toy today, but "never scale anything" is how you get a rewrite under fire. The cost asymmetry matters: choosing a datastore that <i>can</i> emit a change-stream later (Dynamo Streams, Postgres logical decoding) is nearly free now and saves a migration. Dismissing all forward design as "resume-driven" throws out cheap reversibility.
+      <div class="pverdict"><b>Verdict:</b> Don't dismiss cheap forward design as resume-driven.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team <span class="arrow">→ Systems Engineer:</span></span> "Cheap reversibility" cuts the other way — the cheapest reversible move is to <b>not</b> adopt a broker, because not having Kafka is trivially reversible and having it means you own its outages. Your Dynamo-Streams point proves mine: the right move is a datastore with optional CDC, which means the queue decision is <i>deferred</i>, not "Kafka."
+      <div class="pverdict"><b>Verdict:</b> Not adopting a broker is the cheapest reversible move.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate <span class="arrow">→ First-Principles Thinker:</span></span> You're right it's premature, but "neither, full stop" isn't actionable for someone clearly planning ahead. Give them the trigger condition, not just a "no" — refusing to name what they'd choose when the time comes leaves them with no roadmap.
+      <div class="pverdict"><b>Verdict:</b> "Neither" needs a trigger condition to be actionable.</div></div>
+  </div>
+
+  <h2><span class="num">3</span> Round 3 — Rebuttals</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> Conceded to the Product Advocate — "neither" needs a trigger attached. <b>Updated:</b> neither now; the decision unlocks only once you have (a) durable storage and (b) a measured async workload with a producer rate. When resolve-event volume exceeds what a synchronous datastore write absorbs, <i>that's</i> when you queue.
+      <div class="pverdict"><b>Verdict:</b> Neither now — unlocks at durable storage + a measured async rate.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> Holding, sharpened. The answer is a function of a number nobody measured. <b>Rule:</b> replay / multiple consumers / retention &gt; hours → Kafka; transient task dispatch with rich routing and modest volume → RabbitMQ; below ~tens-of-thousands/sec with one consumer → neither, use a Redis stream or DB table.
+      <div class="pverdict"><b>Verdict:</b> Holding — the answer is a function of an unmeasured number.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> Skeptic's reversibility point landed — I withdraw "it's Kafka now." What survives: when analytics <i>do</i> materialize, their shape favors Kafka, a defensible default <i>at that point</i>. But the action today is a datastore with an optional change-stream, not a broker. We agree more than I first framed.
+      <div class="pverdict"><b>Verdict:</b> Withdrew "Kafka now" — datastore with optional CDC today.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> Position intact, now near-consensus: the only defensible move today is persistence + measurement, explicitly <b>not</b> a broker for a stateless CLI. One grant to the Systems Engineer: <i>document</i> the future trigger so the deferral is deliberate, not forgetful.
+      <div class="pverdict"><b>Verdict:</b> Persistence + measurement; explicitly not a broker yet.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Updated by the Research Scientist: I withdraw "lean Kafka" as a reflex. The user-facing sequence is (1) make codes persist, (2) measure click volume, (3) only then queue — and the choice follows the Scientist's rule. Users feel durability and correctness, not the broker's logo.
+      <div class="pverdict"><b>Verdict:</b> Withdrew "lean Kafka" reflex — persist → measure → then queue.</div></div>
+  </div>
+
+  <h2><span class="num">↻</span> Stance Evolution — How the Council Converged</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">Each persona's per-round <b>Verdict:</b> line, bucketed by stance. The grid starts mixed and collapses toward <span style="color:var(--good)">neither</span> by Round 3 — a <span style="color:var(--accent-2)">↻</span> marks where a persona changed their mind.</p>
+    <div class="evo">
+      <div></div>
+      <div class="evo-h">Round 1</div>
+      <div class="evo-h">Round 2</div>
+      <div class="evo-h">Round 3</div>
+      <div class="evo-h evo-final">Final stance</div>
+
+      <div class="evo-name"><span class="avatar">🧱</span>First-Principles</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="evo-final">Neither — storage first</div>
+
+      <div class="evo-name"><span class="avatar">🔬</span>Research</div>
+      <div class="chip" data-stance="undecided">Undecided</div>
+      <div class="chip" data-stance="undecided">Undecided</div>
+      <div class="chip" data-stance="undecided">Undecided</div>
+      <div class="evo-final">Undecidable — measure first</div>
+
+      <div class="evo-name"><span class="avatar">⚙️</span>Systems</div>
+      <div class="chip" data-stance="kafka">Kafka</div>
+      <div class="chip" data-stance="kafka">Kafka</div>
+      <div class="chip" data-stance="neither">Neither<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">Withdrew "Kafka now" — datastore + CDC</div>
+
+      <div class="evo-name"><span class="avatar">👤</span>Product</div>
+      <div class="chip" data-stance="neither">Neither <small>(lean Kafka)</small></div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither<span class="chg" title="withdrew lean-Kafka">↻</span></div>
+      <div class="evo-final">Persist → measure → then queue</div>
+
+      <div class="evo-name"><span class="avatar">🚩</span>Skeptic</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="evo-final">Not a broker yet</div>
+    </div>
+  </div>
+
+  <h2>⚖ Final Verdict</h2>
+  <div class="verdict">
+    <div class="vrow"><div class="vlabel">Best argument</div>The First-Principles Thinker's — a queue's only job is temporal decoupling of producer and consumer, and this product has no such split. Everything downstream (Kafka vs Rabbit) is moot until that primitive exists. The Skeptic's reversibility framing reinforced it: <i>not</i> adopting a broker is the cheaply-reversible choice.</div>
+    <div class="vrow"><div class="vlabel">Biggest risk</div><b>Premature scaling.</b> Trigger: a team stands up a multi-node Kafka/RabbitMQ cluster (and its on-call burden) for a product that still loses all state on process exit and has zero measured traffic. Likelihood: high, given the question was asked at all.</div>
+    <div class="vrow"><div class="vlabel">Key tradeoff</div>When a queue <i>is</i> warranted — <b>Kafka</b> buys replay + multi-consumer fan-out + retention at the cost of partition/offset/rebalance overhead; <b>RabbitMQ</b> buys simple low-latency task dispatch with rich routing at the cost of poor backpressure behavior and no native replay.</div>
+    <div class="vrow"><div class="vlabel">Consensus</div>All five converged that <b>neither should be added now</b>; the genuine first problem is <b>persistence</b>, and the queue choice should be driven by a <i>measured</i> async workload, not anticipated.</div>
+    <div class="vrow"><div class="vlabel">Recommendation</div>
+      <p><b>Do not add Kafka or RabbitMQ now.</b> First give the shortener durable storage (Postgres or Redis/KV) and a real service boundary. Add async messaging only when click-event volume exceeds what a synchronous datastore write absorbs. At that point:</p>
+      <table>
+        <tr><th>If the workload is…</th><th>Choose</th></tr>
+        <tr><td>Event replay, multiple independent consumers, or retention &gt; a few hours (typical analytics ingest)</td><td><b>Kafka</b></td></tr>
+        <tr><td>Transient task dispatch with complex routing and modest volume</td><td><b>RabbitMQ</b></td></tr>
+        <tr><td>Sustained volume &lt; ~tens-of-thousands/sec with a single consumer</td><td><b>Neither</b> (Redis Stream / DB outbox)</td></tr>
+      </table>
+    </div>
+    <div class="vrow conf-row">
+      <div class="conf-text"><div class="vlabel">Confidence<span class="pill high">HIGH</span></div>The recommendation rests on a well-understood mechanism (queues decouple producers/consumers) and deferring is fully reversible with near-zero downside. The conditional Kafka-vs-Rabbit call is medium, since it hinges on an unmeasured workload.</div>
+      <div class="gauge" data-confidence="85"><span class="val">0%</span></div>
+    </div>
+    <div class="vrow"><div class="vlabel">Next 3 actions</div>
+      <ol class="actions">
+        <li><b>Make state durable:</b> replace the in-memory dicts in <code>shortener.py</code> with a real store (Postgres or Redis) and an <code>id</code> allocation that survives restarts — fixes the actual #1 defect.</li>
+        <li><b>Wrap it as a service and instrument it:</b> put resolves behind an HTTP endpoint and emit a click event/metric so you can <i>measure</i> real event volume and read:write ratio.</li>
+        <li><b>Write a one-paragraph "queue trigger" doc:</b> record the threshold (e.g., "async click volume &gt; N/sec or multiple analytics consumers → introduce Kafka; revisit otherwise") so the decision is made on data later, not vibes now.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="vlabel">Bottom line</div>
+    For <code>tiny-shortener</code> as it exists today, the answer to "Kafka or RabbitMQ" is <b>neither — yet</b>. The product's real gap is that it doesn't persist a single short code between two CLI calls. Fix durability and add measurement first; when the analytics firehose actually shows up, default to <b>Kafka</b> for its replay/fan-out shape, and fall back to RabbitMQ or a lighter Redis-stream/DB-outbox only if the measured workload says so.
+  </div>
+
+  <footer>Generated by the LLM Council skill · 5 debaters + 1 judge · grounded in <code>sample-repo</code></footer>
+
+</div>
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reveal = document.querySelectorAll('.turn, .card, .evo');
+  var gauges = document.querySelectorAll('.gauge');
+
+  function fillGauge(g, value) {
+    g.style.setProperty('--val', value);
+    var v = g.querySelector('.val');
+    if (v) v.textContent = value + '%';
+  }
+
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveal.forEach(function (el) { el.classList.add('in'); });
+    gauges.forEach(function (g) { fillGauge(g, +g.dataset.confidence || 0); });
+    return;
+  }
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  reveal.forEach(function (el) { io.observe(el); });
+
+  gauges.forEach(function (g) {
+    var target = +g.dataset.confidence || 0;
+    var go = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      go.unobserve(g);
+      var start = null, dur = 1100;
+      requestAnimationFrame(function step(ts) {
+        if (start === null) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        fillGauge(g, Math.round(p * target));
+        if (p < 1) requestAnimationFrame(step);
+      });
+    }, { threshold: 0.4 });
+    go.observe(g);
+  });
+})();
+</script>
+</body>
+</html>

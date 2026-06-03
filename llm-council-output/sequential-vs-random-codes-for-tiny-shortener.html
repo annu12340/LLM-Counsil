@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council — Sequential vs Random Codes for tiny-shortener</title>
+<style>
+/* LLM Council debate stylesheet — source of truth for HTML-rendered debates.
+   Inline this into <style> when producing a self-contained debate page.
+   See SKILL.md "HTML rendering" for the class/data contract. */
+:root {
+    --bg: #0f1117;
+    --panel: #181b25;
+    --panel-2: #1f2330;
+    --border: #2a2f3e;
+    --text: #e6e9f0;
+    --muted: #9aa3b8;
+    --accent: #7c9cff;
+    --accent-2: #b48cff;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --chip: #232838;
+    --p1: #7c9cff; /* First-Principles */
+    --p2: #5ec8d8; /* Research */
+    --p3: #6ee7a8; /* Systems */
+    --p4: #f8a35c; /* Skeptic */
+    --p5: #c79cff; /* Product */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2540 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  header.hero {
+    text-align: center;
+    padding: 32px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(124,156,255,.12);
+    border: 1px solid rgba(124,156,255,.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 34px;
+    margin: 0 0 12px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); font-size: 16px; max-width: 640px; margin: 0 auto; }
+
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    font-size: 13px;
+    color: var(--bg);
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    width: 26px; height: 26px;
+    border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 16px 0;
+  }
+  .context-grid { display: grid; gap: 14px; }
+  .criteria { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 640px){ .criteria { grid-template-columns: 1fr; } }
+  .criteria .crit {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  .criteria .crit b { color: var(--accent); }
+
+  .turn { margin: 14px 0; padding-left: 16px; border-left: 3px solid var(--border); }
+  .speaker { font-weight: 700; }
+  .p1 { color: #7c9cff; } /* First-Principles */
+  .p2 { color: #5ec8d8; } /* Research */
+  .p3 { color: #6ee7a8; } /* Systems */
+  .p4 { color: #f8a35c; } /* Skeptic */
+  .p5 { color: #c79cff; } /* Product */
+  .judge { color: var(--warn); }
+  .arrow { color: var(--muted); font-weight: 400; }
+
+  .pverdict {
+    margin-top: 8px; font-size: 13px; color: var(--muted);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-2);
+    border-radius: 8px; padding: 7px 12px;
+  }
+  .pverdict b { color: var(--accent-2); font-weight: 700; letter-spacing: .04em; }
+
+  /* anonymized peer-rating */
+  .anon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 18px; }
+  @media (max-width: 640px){ .anon-grid { grid-template-columns: 1fr; } }
+  .anon {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; font-size: 14px;
+  }
+  .anon .tag {
+    display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .1em;
+    color: var(--bg); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    padding: 2px 10px; border-radius: 6px; margin-bottom: 8px;
+  }
+  .rate-table th, .rate-table td { text-align: center; }
+  .rate-table th:first-child, .rate-table td:first-child { text-align: left; white-space: nowrap; }
+  .rate-table td .note { display:block; color: var(--muted); font-size: 11px; line-height: 1.3; margin-top: 2px; }
+  .rate-table .self { color: var(--muted); }
+  .rate-table .avg td { font-weight: 700; border-top: 2px solid var(--border); }
+  .score { font-weight: 700; }
+  .s-hi { color: var(--good); }
+  .s-mid { color: var(--warn); }
+  .s-lo { color: var(--bad); }
+  .rank { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+  .rank li {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 14px;
+  }
+  .rank .medal { font-size: 18px; width: 24px; text-align: center; }
+  .rank .sc { margin-left: auto; font-weight: 700; }
+  .reveal { margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .reveal b { color: var(--text); }
+
+  .verdict { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 8px 24px 24px; }
+  .vrow { padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .vrow:last-child { border-bottom: none; }
+  .vlabel { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin-bottom: 6px; }
+  .pill {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    padding: 3px 12px; border-radius: 999px; margin-left: 8px;
+  }
+  .pill.high { background: rgba(74,222,128,.15); color: var(--good); border:1px solid rgba(74,222,128,.4); }
+
+  ol.actions { counter-reset: step; list-style: none; padding: 0; margin: 8px 0 0; }
+  ol.actions li {
+    position: relative; padding: 14px 14px 14px 52px; margin: 10px 0;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  ol.actions li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 14px; top: 14px;
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--bg); font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .bottom {
+    margin-top: 40px; padding: 22px 24px;
+    background: linear-gradient(135deg, rgba(124,156,255,.12), rgba(180,140,255,.10));
+    border: 1px solid rgba(124,156,255,.3); border-radius: 14px;
+  }
+  .bottom .vlabel { color: var(--accent-2); }
+
+  /* naive single-model baseline — the deliberate "before" callout */
+  .naive {
+    margin: 0 0 32px; padding: 18px 22px;
+    background: var(--panel-2);
+    border: 1px dashed rgba(251,191,36,.45);
+    border-left: 3px solid var(--warn);
+    border-radius: 14px;
+    color: var(--muted); font-size: 15px;
+  }
+  .naive p { margin: 8px 0; }
+  .naive-label {
+    display: inline-block;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--warn); margin-bottom: 8px;
+  }
+  .naive-risk {
+    font-size: 13px; color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 8px; margin-top: 10px;
+  }
+  .naive-risk b { color: var(--warn); }
+
+  code { background: var(--chip); padding: 2px 7px; border-radius: 6px; font-size: .9em; color: #ffd9a8; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 56px; }
+  p { margin: 8px 0; }
+
+  /* persona avatars */
+  .avatar { display: inline-block; margin-right: 6px; font-style: normal; }
+
+  /* stance-evolution convergence grid */
+  .evo {
+    display: grid;
+    grid-template-columns: 160px repeat(3, 1fr) 1.5fr;
+    gap: 8px; align-items: center;
+    margin-top: 6px;
+  }
+  @media (max-width: 640px){ .evo { grid-template-columns: 110px repeat(3, 1fr); } .evo .evo-final { display:none; } .evo .evo-final.evo-h { display:block; grid-column: 1 / -1; } }
+  .evo .evo-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
+  .evo .evo-name { font-size: 13px; font-weight: 600; }
+  .evo .chip {
+    position: relative; text-align: center; padding: 9px 6px;
+    border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .evo .chip[data-stance="kafka"]     { background: rgba(124,156,255,.18); color: var(--accent); border-color: rgba(124,156,255,.4); }
+  .evo .chip[data-stance="rabbit"]    { background: rgba(251,191,36,.16);  color: var(--warn);   border-color: rgba(251,191,36,.4); }
+  .evo .chip[data-stance="neither"]   { background: rgba(74,222,128,.15);  color: var(--good);   border-color: rgba(74,222,128,.4); }
+  .evo .chip[data-stance="undecided"] { background: rgba(154,163,184,.14); color: var(--muted);  border-color: var(--border); }
+  .evo .chip .chg {
+    position: absolute; top: -8px; right: -8px;
+    width: 19px; height: 19px; border-radius: 50%;
+    background: var(--accent-2); color: var(--bg);
+    font-size: 12px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .evo .evo-final { font-size: 12px; color: var(--muted); padding-left: 4px; }
+
+  /* peer-rating heatmap */
+  .rate-table td[data-score="8"],
+  .rate-table td[data-score="9"],
+  .rate-table td[data-score="10"] { background: rgba(74,222,128,.13); }
+  .rate-table td[data-score="6"],
+  .rate-table td[data-score="7"]  { background: rgba(251,191,36,.12); }
+  .rate-table td[data-score="3"],
+  .rate-table td[data-score="4"],
+  .rate-table td[data-score="5"]  { background: rgba(248,113,113,.13); }
+  .rate-table td.self {
+    background: repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 5px, var(--panel) 5px, var(--panel) 10px);
+  }
+
+  /* ranking bar chart */
+  .rank li { position: relative; overflow: hidden; }
+  .rank .bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: calc(var(--score) / 10 * 100%);
+    background: var(--p1); opacity: .20;
+    border-left: 3px solid var(--bar-color, var(--p1));
+    z-index: 0;
+  }
+  .rank .bar.p1 { background: var(--p1); --bar-color: var(--p1); }
+  .rank .bar.p2 { background: var(--p2); --bar-color: var(--p2); }
+  .rank .bar.p3 { background: var(--p3); --bar-color: var(--p3); }
+  .rank .bar.p4 { background: var(--p4); --bar-color: var(--p4); }
+  .rank .bar.p5 { background: var(--p5); --bar-color: var(--p5); }
+  .rank .bar.glow { box-shadow: 0 0 18px 2px var(--bar-color); opacity: .28; }
+  .rank li > .medal, .rank li > b, .rank li > .sc { position: relative; z-index: 1; }
+
+  /* confidence gauge */
+  .conf-row { display: flex; align-items: center; gap: 22px; }
+  .conf-text { flex: 1; }
+  .gauge {
+    flex: 0 0 auto; width: 76px; height: 76px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: conic-gradient(var(--good) calc(var(--val, 0) * 1%), var(--border) 0);
+  }
+  .gauge::before {
+    content: ''; grid-area: 1 / 1;
+    width: 54px; height: 54px; border-radius: 50%; background: var(--panel-2);
+  }
+  .gauge .val { grid-area: 1 / 1; z-index: 1; font-weight: 700; font-size: 14px; color: var(--good); }
+  @media (max-width: 640px){ .conf-row { flex-direction: column; align-items: flex-start; } }
+
+  /* scroll-reveal */
+  @media (prefers-reduced-motion: no-preference) {
+    .turn, .card, .evo { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+    .turn.in, .card.in, .evo.in { opacity: 1; transform: none; }
+    .card .turn:nth-child(1) { transition-delay: .04s; }
+    .card .turn:nth-child(2) { transition-delay: .12s; }
+    .card .turn:nth-child(3) { transition-delay: .20s; }
+    .card .turn:nth-child(4) { transition-delay: .28s; }
+    .card .turn:nth-child(5) { transition-delay: .36s; }
+  }
+
+  .evo .chip[data-stance="random"] { background: rgba(124,156,255,.18); color: var(--accent); border-color: rgba(124,156,255,.4); }
+  .evo .chip[data-stance="sequential"] { background: rgba(251,191,36,.16); color: var(--warn); border-color: rgba(251,191,36,.4); }
+  .evo .chip[data-stance="neither"] { background: rgba(74,222,128,.15); color: var(--good); border-color: rgba(74,222,128,.4); }
+  .evo .chip[data-stance="undecided"] { background: rgba(154,163,184,.14); color: var(--muted); border-color: var(--border); }
+</style>
+<noscript><style>.turn, .card, .evo { opacity: 1 !important; transform: none !important; }</style></noscript>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">⚖ LLM Council Debate</span>
+    <h1>Sequential vs Random Codes for tiny-shortener</h1>
+    <p class="subtitle">A structured, adversarial debate among five expert personas, synthesized into a decisive recommendation.</p>
+  </header>
+
+  <div class="naive">
+    <span class="naive-label">Single-model baseline — no council</span>
+    <p>You should usually prefer random short codes over sequential ids because sequential values are enumerable and reveal usage counts. Random codes are more privacy-preserving and look more production-ready, so they are generally the safer default for a URL shortener.</p>
+    <div class="naive-risk"><b>Why this is risky:</b> That answer is directionally right but ungrounded in this repo, skips the persistence prerequisite, and names no concrete implementation rule such as code length, uniqueness checks, or the migration trap.</div>
+  </div>
+
+  <h2>Topic</h2>
+  <div class="card">
+    Should tiny-shortener switch from sequential ids to random codes when persistence is added?
+  </div>
+
+  <h2>Context</h2>
+  <div class="card context-grid">
+    <p>The fixture repo is a minimal CLI shortener. It keeps urls, click counts, and the next id in memory unless a file path is explicitly passed in.</p>
+    <p>Today there is no HTTP layer, no rate limiting, no collision handling, and no persistent datastore in the default flow. The live question is really about what scheme should be committed once the project crosses into a real service boundary.</p>
+    <div>
+      <div class="vlabel">Inferred decision criteria</div>
+      <div class="criteria">
+        <div class="crit"><b>1. Privacy / enumeration</b> — does the public code leak usage counts or make walking neighboring links trivial?</div>
+        <div class="crit"><b>2. Correctness cost</b> — what extra failure modes or retries does the scheme introduce?</div>
+        <div class="crit"><b>3. Fit to current architecture</b> — does the decision matter today, or only at the persistence boundary?</div>
+        <div class="crit"><b>4. Migration cost</b> — how painful is it if the wrong public scheme ships first?</div>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-top:6px"><b>Assumption:</b> The project is expected to grow into a networked service; otherwise the choice remains mostly inert.</p>
+  </div>
+
+  <h2><span class="num">1</span> Round 1 — Opening Positions</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> The real principle is to separate the public handle from the internal row id. Sequential ids violate that principle, but in this in-memory CLI the literal switch does not change behavior yet.
+      <div class="pverdict"><b>Verdict:</b> Neither now; commit to decoupling the public code from the internal id.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> Random codes and hashed-from-url codes are not the same thing. Random codes need uniqueness checks, while hash-derived codes create a different product behavior and should not be collapsed into the same option.
+      <div class="pverdict"><b>Verdict:</b> Prefer random later; reject conflating random with hash-derived codes.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> The architecture has no persistent storage yet, so the generator is not the part doing the real work. The meaningful boundary is when a datastore exists and the public namespace starts to live beyond one process.
+      <div class="pverdict"><b>Verdict:</b> Persistence first; decide the public code scheme at the same boundary.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> If sequential codes ship into a real networked service, they create a cheap enumeration path and a later migration headache. The danger is not today&#x27;s toy, but accidentally carrying today&#x27;s shortcut into production.
+      <div class="pverdict"><b>Verdict:</b> Do not ship sequential publicly; random is the safer committed direction.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Users feel link privacy and polish, not internal ids. Random codes make the product look legitimate and avoid broadcasting count information, but the change only matters once links persist and resolve across sessions.
+      <div class="pverdict"><b>Verdict:</b> Random wins for the real product, but it should land with persistence.</div></div>
+  </div>
+
+  <h2><span class="num">★</span> Anonymized Peer Rating</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">The five opening positions were stripped of author labels and shuffled. Each persona scored the others <b>blind</b> (own = <span class="self">—</span>), so the numbers reflect argument quality, not who said it. Composite 1–10 = analytical <b>rigor</b> + <b>usefulness</b>.</p>
+    <div class="anon-grid">
+      <div class="anon"><span class="tag">Position A</span> Do not ship sequential publicly; random is the safer committed direction.</div>
+      <div class="anon"><span class="tag">Position B</span> Persistence is the real boundary, and the public scheme should be decided there.</div>
+      <div class="anon"><span class="tag">Position C</span> Neither now; the core principle is decoupling the public code from the internal id.</div>
+      <div class="anon"><span class="tag">Position D</span> Random wins for the product, but only matters once links persist and resolve.</div>
+      <div class="anon"><span class="tag">Position E</span> Prefer random later and reject treating random and hash-derived codes as the same option.</div>
+    </div>
+    <table class="rate-table">
+      <tr><th>Rater \ Position</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+      <tr>
+        <td><span class="p1"><span class="avatar">🧱</span>First-Principles</span></td><td data-score="9"><span class="score s-hi">9</span><span class="note">names the migration and exposure risk clearly</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">true but a bit too boundary-focused</span></td><td class="self">—</td><td data-score="7"><span class="score s-mid">7</span><span class="note">good user lens, lighter on mechanism</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">valuable distinction, still a step removed from the principle</span></td>
+      </tr>
+      <tr>
+        <td><span class="p2"><span class="avatar">🔬</span>Research Scientist</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">correct on risk, slightly absolute</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">architecturally honest, less specific</span></td><td data-score="9"><span class="score s-hi">9</span><span class="note">names the fundamental issue directly</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">clear product framing</span></td><td class="self">—</td>
+      </tr>
+      <tr>
+        <td><span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">right about production risk</span></td><td class="self">—</td><td data-score="8"><span class="score s-hi">8</span><span class="note">principled and useful</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">good outcome framing</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">solid implementation distinction</span></td>
+      </tr>
+      <tr>
+        <td><span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span></td><td class="self">—</td><td data-score="7"><span class="score s-mid">7</span><span class="note">right sequence, underplays public risk</span></td><td data-score="9"><span class="score s-hi">9</span><span class="note">strongest statement of the real principle</span></td><td data-score="6"><span class="score s-mid">6</span><span class="note">polish is secondary to exposure risk</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">good distinction, actionable later</span></td>
+      </tr>
+      <tr>
+        <td><span class="p5"><span class="avatar">👤</span>Product Advocate</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">protects the live product from a bad default</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">correct sequencing</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">principled and easy to explain</span></td><td class="self">—</td><td data-score="7"><span class="score s-mid">7</span><span class="note">useful technical distinction</span></td>
+      </tr>
+      <tr class="avg">
+        <td>Average</td><td><span class="s-hi">8.3</span></td><td><span class="s-mid">7.0</span></td><td><span class="s-hi">8.5</span></td><td><span class="s-mid">6.8</span></td><td><span class="s-mid">7.8</span></td>
+      </tr>
+    </table>
+    <ol class="rank">
+      <li><span class="bar p1 glow" style="--score:8.5"></span><span class="medal">🥇</span> <b>Position C</b> — the clearest articulation of the core principle <span class="sc">8.5</span></li>
+      <li><span class="bar p4" style="--score:8.3"></span><span class="medal">🥈</span> <b>Position A</b> — best framing of the production risk <span class="sc">8.3</span></li>
+      <li><span class="bar p2" style="--score:7.8"></span><span class="medal">🥉</span> <b>Position E</b> — strong distinction between random and hash-derived codes <span class="sc">7.8</span></li>
+      <li><span class="bar p3" style="--score:7.0"></span><span class="medal">4️⃣</span> <b>Position B</b> — architecturally correct but less decisive <span class="sc">7.0</span></li>
+      <li><span class="bar p5" style="--score:6.8"></span><span class="medal">5️⃣</span> <b>Position D</b> — good user framing but lighter on the implementation rule <span class="sc">6.8</span></li>
+    </ol>
+    <p class="reveal"><b>Reveal:</b> A = <span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span> · B = <span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span> · C = <span class="p1"><span class="avatar">🧱</span>First-Principles</span> · D = <span class="p5"><span class="avatar">👤</span>Product Advocate</span> · E = <span class="p2"><span class="avatar">🔬</span>Research Scientist</span>. The blind scores favored the positions that separated the design principle from the current toy implementation.</p>
+  </div>
+
+  <h2><span class="num">2</span> Round 2 — Challenges</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker <span class="arrow">→ Product / User Advocate:</span></span> Random feeling more polished is true, but polish is downstream of the namespace decision. The critical mistake is coupling the public code to the internal id, not whether the string looks fancy.
+      <div class="pverdict"><b>Verdict:</b> The principle is decoupling; polish is secondary.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist <span class="arrow">→ Skeptic / Red Team:</span></span> Saying random is safer is insufficient unless you also define the mechanism. Code length and uniqueness checks matter, or you replace enumeration with duplicate-code risk.
+      <div class="pverdict"><b>Verdict:</b> Random needs explicit length and uniqueness rules.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer <span class="arrow">→ First-Principles Thinker:</span></span> I agree on the principle, but stopping at principle is not enough for implementation planning. The actual engineering move is to make the generator part of the persistence change, not a detached refactor today.
+      <div class="pverdict"><b>Verdict:</b> Principle plus persistence-bound implementation, not a free-floating refactor.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team <span class="arrow">→ Systems Engineer:</span></span> Boundary discipline is good, but it can accidentally excuse shipping the wrong public namespace first. If sequential becomes the persisted public scheme even briefly, migration pain starts immediately.
+      <div class="pverdict"><b>Verdict:</b> Do not let sequencing turn into shipping sequential publicly.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate <span class="arrow">→ Research Scientist:</span></span> The distinction between random and hash-derived codes is important, but the team still needs a crisp outcome. If hashing breaks per-link semantics and random does not, say random plainly instead of staying taxonomy-heavy.
+      <div class="pverdict"><b>Verdict:</b> Make the outcome explicit: random yes, hash-derived no.</div></div>
+  </div>
+
+  <h2><span class="num">3</span> Round 3 — Rebuttals</h2>
+  <div class="card">
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> The Skeptic landed the migration point. I still think the current runtime behavior should not change first, but the committed public scheme should already be random so the internal id never becomes the public contract.
+      <div class="pverdict"><b>Verdict:</b> Commit to random as the public scheme, applied when persistence lands.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> Holding, but now concrete: random base-62 with length at least 7 and a uniqueness check is the right implementation rule. Hash-derived codes remain a different feature and should be rejected for this use case.
+      <div class="pverdict"><b>Verdict:</b> Random base-62, length &gt;= 7, with uniqueness checks; reject hash-derived codes.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> I withdraw the softer boundary-only framing. The right sequence is persistence first, but at that exact boundary the public namespace should be random so the system never ships a sequential external contract.
+      <div class="pverdict"><b>Verdict:</b> Persistence first, and random at that same boundary.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> Near-consensus now. Random is the correct committed direction, and it should be paired with rate limiting before public exposure because random codes stop enumeration, not brute force.
+      <div class="pverdict"><b>Verdict:</b> Commit to random plus rate limiting before exposure.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> I agree with the sharpened recommendation. Users should only ever experience the durable version of the product, and in that version the public links should already be random, private-looking, and stable.
+      <div class="pverdict"><b>Verdict:</b> Users should first meet the product with random durable links, not sequential public ones.</div></div>
+  </div>
+
+  <h2><span class="num">↻</span> Stance Evolution — How the Council Converged</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">Each persona&#x27;s per-round verdict is bucketed by stance. The council starts split between neither-for-now and random-as-the-commitment, then converges on random at the persistence boundary.</p>
+    <div class="evo">
+      <div></div>
+      <div class="evo-h">Round 1</div>
+      <div class="evo-h">Round 2</div>
+      <div class="evo-h">Round 3</div>
+      <div class="evo-h evo-final">Final stance</div>
+      <div class="evo-name"><span class="avatar">🧱</span>First-Principles</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="random">Random<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">Random scheme, applied when persistence lands</div>
+      <div class="evo-name"><span class="avatar">🔬</span>Research Scientist</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="evo-final">Random base-62, length &gt;= 7, uniqueness checks</div>
+      <div class="evo-name"><span class="avatar">⚙️</span>Systems Engineer</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="neither">Neither</div>
+      <div class="chip" data-stance="random">Random<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">Persistence first, random at the same boundary</div>
+      <div class="evo-name"><span class="avatar">🚩</span>Skeptic / Red Team</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="evo-final">Random plus rate limiting before exposure</div>
+      <div class="evo-name"><span class="avatar">👤</span>Product Advocate</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="chip" data-stance="random">Random</div>
+      <div class="evo-final">Users should first see durable random links</div>
+    </div>
+  </div>
+
+  <h2>⚖ Final Verdict</h2>
+  <div class="verdict">
+    <div class="vrow"><div class="vlabel">Best argument</div>The strongest argument was the First-Principles frame, reinforced by the Skeptic: the public code should never expose the internal id, and shipping sequential publicly creates a migration trap.</div>
+    <div class="vrow"><div class="vlabel">Biggest risk</div>The biggest risk is shipping sequential codes as the first real public namespace and then having to preserve or migrate them after users already depend on them.</div>
+    <div class="vrow"><div class="vlabel">Key tradeoff</div>Random codes buy a non-enumerable public namespace at the cost of code-length choices and uniqueness checks; sequential codes buy simplicity but leak count and neighbor relationships.</div>
+    <div class="vrow"><div class="vlabel">Consensus</div>All five agree the runtime behavior does not need a cosmetic refactor first, but the committed public scheme should be random once persistence turns this into a real service.</div>
+    <div class="vrow"><div class="vlabel">Recommendation</div><p>Do not refactor the toy in isolation. Instead, make the persistence change the moment where random base-62 codes become the public namespace, with length &gt;= 7, uniqueness checks, and rate limiting before public exposure.</p></div>
+    <div class="vrow conf-row"><div class="conf-text"><div class="vlabel">Confidence<span class="pill med">MEDIUM-HIGH</span></div>The principle and migration-risk argument are strong and grounded in the repo. The exact code length and exposure controls still depend on the future deployed shape.</div><div class="gauge" data-confidence="76"><span class="val">0%</span></div></div>
+    <div class="vrow"><div class="vlabel">Next 3 actions</div>
+      <ol class="actions">
+        <li>Write down the committed public-code rule now: random base-62 codes generated independently of the internal id.</li>
+        <li>Implement persistence and the random generator in the same change so sequential codes never become the public durable contract.</li>
+        <li>Before adding a networked resolve endpoint, add rate limiting and keep the generator uniqueness check in place.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>📋 ADR Snippet</h2>
+  <div class="card">
+    <p><b>Status:</b> proposed</p>
+    <p><b>Decision:</b> Adopt random base-62 public codes, generated independently of the internal id, when persistence is introduced; do not ship sequential public codes.</p>
+    <p><b>Consequences:</b> This avoids enumeration and the live migration trap, but requires explicit code length choices, uniqueness checks, and exposure controls like rate limiting.</p>
+  </div>
+
+  <div class="bottom">
+    <div class="vlabel">Bottom line</div>
+    For this repo, the winning move is not a cosmetic generator refactor today. It is committing now that the first durable public namespace will be random, then implementing that rule at the persistence boundary so sequential ids never become the external contract.
+  </div>
+
+  <footer>Generated by the LLM Council tool · 5 debaters + 1 judge · grounded in <code>High critical project mock</code></footer>
+
+</div>
+<script>
+/* LLM Council debate behavior — scroll-reveal + confidence gauge.
+   Inline this into <script> before </body> in a self-contained debate page.
+   Respects prefers-reduced-motion: shows everything immediately, no animation. */
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reveal = document.querySelectorAll('.turn, .card, .evo');
+  var gauges = document.querySelectorAll('.gauge');
+
+  function fillGauge(g, value) {
+    g.style.setProperty('--val', value);
+    var v = g.querySelector('.val');
+    if (v) v.textContent = value + '%';
+  }
+
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveal.forEach(function (el) { el.classList.add('in'); });
+    gauges.forEach(function (g) { fillGauge(g, +g.dataset.confidence || 0); });
+    return;
+  }
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  reveal.forEach(function (el) { io.observe(el); });
+
+  gauges.forEach(function (g) {
+    var target = +g.dataset.confidence || 0;
+    var go = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      go.unobserve(g);
+      var start = null, dur = 1100;
+      requestAnimationFrame(function step(ts) {
+        if (start === null) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        fillGauge(g, Math.round(p * target));
+        if (p < 1) requestAnimationFrame(step);
+      });
+    }, { threshold: 0.4 });
+    go.observe(g);
+  });
+})();
+
+</script>
+</body>
+</html>
