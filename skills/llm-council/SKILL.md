@@ -1,25 +1,26 @@
 ---
 name: llm-council
 description: >-
-  Run a structured LLM Council debate (5 personas + Judge) on architecture,
-  design decisions, tech choices, papers, or red-team plans. Triggers: "council",
-  "debate", "red team", "pressure-test", "ADR", "which should we use".
-  Outputs markdown debate, optional ADR snippet, and self-contained HTML under
-  llm-council-output/. Use code-aware mode when the topic references a repo path.
+  Run an AI ADR/RFC decision council (5 expert personas + Judge) for
+  architecture choices, design proposals, repo-grounded tradeoffs, and technical
+  red-team reviews. Triggers: "council", "debate", "red team",
+  "pressure-test", "ADR", "RFC", "which should we use". Outputs Markdown,
+  ADR snippet, validated JSON, and self-contained HTML under llm-council-output/.
+  Use code-aware mode when the topic references a repo path.
 ---
 
 # LLM Council
 
-Run a structured, adversarial debate among expert personas to pressure-test a topic and produce a decisive, actionable recommendation.
+Run a structured, adversarial council among expert personas to pressure-test an engineering ADR/RFC and produce a decisive, actionable recommendation.
 
 ## Trigger phrases
 
-**What:** A 4-round council debate (5 personas + Judge) with blind peer rating, a committed final verdict, optional ADR snippet, and self-contained HTML under `llm-council-output/`.
+**What:** A 4-round engineering decision council (5 personas + Judge) with blind peer rating, a committed final verdict, ADR snippet, validated JSON, and self-contained HTML under `llm-council-output/`.
 
 **When to invoke** — user message includes any of:
 - `council`, `LLM Council`, `/llm-council`
 - `debate`, `pressure-test`, `red team`, `red-team`
-- `ADR`, `architecture decision`, `which should we use`, `X vs Y`
+- `ADR`, `RFC`, `architecture decision`, `which should we use`, `X vs Y`
 - A repo path or "this codebase" with a design or technology question
 
 If optional inputs are missing, proceed with defaults — do not block on context or criteria.
@@ -27,11 +28,11 @@ If optional inputs are missing, proceed with defaults — do not block on contex
 ## When to use
 
 Invoke when the user wants to:
-- Evaluate an architecture, design decision, or technology choice.
-- Stress-test an idea or proposal before committing.
+- Evaluate an architecture, design decision, or technology choice for an ADR/RFC.
+- Stress-test an engineering proposal before committing.
 - Get a balanced-but-decisive recommendation with explicit tradeoffs.
-- Red-team a plan for failure modes and hidden costs.
-- Summarize and critique a paper or approach from multiple angles.
+- Red-team a technical plan for failure modes and hidden costs.
+- Turn a repo-grounded design question into a shareable decision artifact.
 
 ## Inputs
 

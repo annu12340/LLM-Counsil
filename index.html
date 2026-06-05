@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="LLM Council — a Cursor / Claude Code Agent Skill that runs structured multi-persona debates and outputs actionable verdicts plus offline HTML.">
-<title>The LLM Council — Agent Skill for Technical Decisions</title>
+<meta name="description" content="LLM Council — an AI ADR/RFC decision council for engineering teams with a 22-call agent workflow, Judge-gated verdicts, ADR snippets, and offline HTML artifacts.">
+<title>The LLM Council — AI ADR/RFC Decision Council</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -473,6 +473,12 @@
     font-family: var(--mono); font-weight: 600; font-size: 16px;
     border-radius: 3px;
   }
+  #impact .benefit .bicon {
+    width: auto;
+    min-width: 46px;
+    padding: 0 8px;
+    font-size: 14px;
+  }
   .benefit h3 { font-family: var(--display); font-weight: 600; font-size: 21px; line-height: 1.1; margin-bottom: 9px; }
   .benefit p { color: var(--ink-soft); font-size: 15.5px; line-height: 1.5; }
 
@@ -835,6 +841,7 @@
     <a class="logo" href="#"><span class="seal-ico">⚖</span> The LLM Council</a>
     <div class="nav-links">
       <a href="#demo">Demo</a>
+      <a href="#impact">Impact</a>
       <a href="#why">Why</a>
       <a href="#how">How it works</a>
       <a href="#bench">The bench</a>
@@ -864,11 +871,11 @@
   </div>
 
   <div class="edition rise d1">Vol. I · No. 01 — The Deliberation Desk</div>
-  <h1 class="rise d2">Five AI experts debate your question. <span class="em">One judge delivers the verdict.</span></h1>
+  <h1 class="rise d2">AI ADR/RFC council for engineering teams. <span class="em">22 agent calls. One verdict.</span></h1>
   <p class="dek rise d3">
-    Submit any technical decision — which database, build vs. buy, RAG vs. fine-tuning. Five AI experts
-    argue opposing sides, challenge each other's reasoning, and a judge rules with <b>one clear
-    recommendation</b> — backed by the full debate, saved as a shareable record.
+    Turn architecture choices, repo-grounded tradeoffs, and RFC proposals into a decision record in minutes.
+    Five AI experts argue opposing sides, challenge each other's reasoning, and a Judge rules with <b>one clear
+    recommendation</b> — targeting <b>80–90% less ADR prep time</b> than a manual draft-and-review loop.
   </p>
   <div class="cta-row rise d4">
     <a class="btn btn-primary" href="#install">Convene the council →</a>
@@ -881,30 +888,53 @@
       <span class="stamp">Decided</span>
     </div>
     <div class="vc-body">
-      <p class="vc-q"><span class="lbl">Question</span> <b>Should we use RAG or fine-tuning?</b></p>
-      <div class="vc-verdict">Use RAG.</div>
+      <p class="vc-q"><span class="lbl">Question</span> <b>ADR: Kafka or RabbitMQ for event ingestion?</b></p>
+      <div class="vc-verdict">Use RabbitMQ now.</div>
       <div class="vc-conf">
         <span class="lbl">Confidence</span>
         <div class="row">
           <div class="vc-meter"><span id="vcMeter"></span></div>
-          <span class="vc-pct"><span class="figure" data-to="83">0</span>%</span>
+          <span class="vc-pct"><span class="figure" data-to="82">0</span>%</span>
         </div>
       </div>
       <span class="lbl">Why the judge ruled this way</span>
       <ul class="vc-reasons">
-        <li>Lower cost — no training run to fund or repeat</li>
-        <li>Faster to deploy and iterate on</li>
-        <li>Easier to maintain as the data changes</li>
+        <li>Small ops team favors lower day-two burden</li>
+        <li>Kafka trigger is explicit: durable replay as product contract</li>
+        <li>ADR snippet and HTML record ship with the verdict</li>
       </ul>
     </div>
   </div>
 
   <div class="docket rise d5">
-    <div class="stat"><span class="figure" data-to="5">0</span><span class="cap">AI experts</span></div>
-    <div class="stat"><span class="figure" data-to="4">0</span><span class="cap">rounds of debate</span></div>
-    <div class="stat"><span class="figure" data-to="1">0</span><span class="cap">final verdict</span></div>
+    <div class="stat"><span class="figure" data-to="22">0</span><span class="cap">agent calls</span></div>
+    <div class="stat"><span class="figure" data-to="100">0</span><span class="cap">% Judge gated</span></div>
+    <div class="stat"><span class="figure" data-to="90">0</span><span class="cap">% prep cut target</span></div>
   </div>
 </header>
+
+<section class="wrap" id="impact">
+  <div class="kicker"><span class="num">§ 00</span> — Impact Math</div>
+  <h2>Designed to compress ADR prep by 80–90%</h2>
+  <p class="section-lead">Impact target: replace a 60–90 minute manual ADR/RFC draft-and-review prep loop with a 5–10 minute council run plus human edit pass, while preserving a full, auditable decision record.</p>
+  <div class="benefits">
+    <div class="benefit">
+      <span class="bicon">22</span>
+      <h3>Agent calls per full run</h3>
+      <p>1 naive baseline, 15 debater turns, 5 blind peer-rating calls, and 1 final Judge synthesis.</p>
+    </div>
+    <div class="benefit">
+      <span class="bicon">100%</span>
+      <h3>Judge-gated final verdict</h3>
+      <p>The Judge stays silent until Round 4; the test suite asserts the final call is the only Judge call.</p>
+    </div>
+    <div class="benefit">
+      <span class="bicon">0</span>
+      <h3>Runtime sharing overhead</h3>
+      <p>Generated HTML has no external scripts or styles, so the decision artifact opens offline in any browser.</p>
+    </div>
+  </div>
+</section>
 
 <section class="wrap" id="demo">
   <div class="kicker"><span class="num">§ 01</span> — In Session</div>
@@ -987,7 +1017,7 @@
   <h2>How the council reaches a verdict</h2>
   <p class="section-lead">Every question follows the same path — so the recommendation is something you can trust and defend, not a coin flip.</p>
   <div class="flow">
-    <div class="flow-step"><div class="ord">I</div><h3>Submit the case</h3><p>Ask any technical question or decision.</p></div>
+    <div class="flow-step"><div class="ord">I</div><h3>Submit the case</h3><p>Ask an ADR/RFC question or repo-grounded technical decision.</p></div>
     <div class="flow-step"><div class="ord">II</div><h3>Experts take sides</h3><p>Five AI experts open from different angles.</p></div>
     <div class="flow-step"><div class="ord">III</div><h3>They cross-examine</h3><p>Each one attacks the others' weak points.</p></div>
     <div class="flow-step"><div class="ord">IV</div><h3>Positions update</h3><p>Strong arguments survive; shaky ones fold.</p></div>
@@ -1085,8 +1115,8 @@
       </div>
       <div class="arch-box">
         <span class="label">Portable</span>
-        <h4>openai.yaml</h4>
-        <p>Personas, flow, temperatures for multi-agent runners</p>
+        <h4>agents.yaml</h4>
+        <p>Personas, flow, temperatures for the executable multi-agent runner</p>
       </div>
       <div class="arch-box">
         <span class="label">Assets</span>
@@ -1139,11 +1169,13 @@
     </thead>
     <tbody>
       <tr><td>Package</td><td><code>skills/llm-council/</code> — source of truth; installed via <code>scripts/install-skills.sh</code></td></tr>
+      <tr><td>Agents runner</td><td><code>scripts/run_agents.py</code> executes <b>22 model calls</b>: 1 baseline + 15 debater turns + 5 blind ratings + 1 Judge</td></tr>
       <tr><td>Personas</td><td>5 debaters (First-Principles, Research, Systems, Skeptic, Product) + Judge; Security Engineer swap for auth/threat topics</td></tr>
       <tr><td>Peer rating</td><td>Round 1 positions anonymized to A–E, shuffled; blind 1–10 composite (rigor + usefulness); own position scored as —</td></tr>
-      <tr><td>Code-aware</td><td>Reads repo before Round 1; Context states what exists vs. what doesn't — fixture: <code>High critical project mock/</code></td></tr>
+      <tr><td>Validation</td><td><b>100%</b> of committed example JSON and HTML artifacts pass <code>validate-artifacts</code> in demo + CI</td></tr>
+      <tr><td>Code-aware</td><td>Reads repo before Round 1; Context states what exists vs. what doesn't — fixture: <code>url-shortener-fixture/</code></td></tr>
       <tr><td>HTML contract</td><td><code>.evo</code> stance grid, <code>.rate-table</code> heatmap, <code>.gauge[data-confidence]</code>; CSS/JS inlined — no external deps</td></tr>
-      <tr><td>Sync rule</td><td>Changes to personas, rounds, or HTML schema → update <code>SKILL.md</code>, <code>openai.yaml</code>, and <code>debate-framework.md</code> together</td></tr>
+      <tr><td>Sync rule</td><td>Changes to personas, rounds, or HTML schema → update <code>SKILL.md</code>, <code>agents.yaml</code>, and <code>debate-framework.md</code> together</td></tr>
     </tbody>
   </table>
   <p class="note" style="margin-top: 28px;">Full reference with Mermaid diagrams: <a href="skills/llm-council/references/architecture.md"><b>references/architecture.md</b></a></p>
@@ -1174,7 +1206,7 @@
   <p class="note"><b>Code-aware.</b> Point at a repo path and the agent reads the README, modules, and tests before Round 1 even opens:</p>
   <div class="code-block" id="prompt-code">
     <button type="button" class="copy-btn" data-copy="prompt-code-text">Copy</button>
-    <span id="prompt-code-text"><span class="kw">/llm-council</span> Should High critical project mock use Postgres or Redis for persistence?</span>
+    <span id="prompt-code-text"><span class="kw">/llm-council</span> Should url-shortener-fixture use Postgres or Redis for persistence?</span>
   </div>
 </section>
 
@@ -1201,7 +1233,7 @@
       </div>
       <div class="demo-card-body">
         <h3>Sequential vs Random Codes</h3>
-        <p>Code-aware fixture — arguments grounded in the High critical project mock shortener.</p>
+        <p>Code-aware fixture — arguments grounded in the url-shortener-fixture shortener.</p>
         <span class="demo-tag">Exhibit B — Code-aware →</span>
       </div>
     </a>
@@ -1238,7 +1270,7 @@
       <div class="ord">III</div>
       <div>
         <h3>Convene a council</h3>
-        <p>Try the High critical project mock fixture in this repo, or put any <code>X vs Y</code> architecture question to the bench.</p>
+        <p>Try the url-shortener-fixture in this repo, or put an <code>ADR: X vs Y</code> architecture question to the bench.</p>
       </div>
     </div>
   </div>

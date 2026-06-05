@@ -271,7 +271,145 @@ def render_adr(adr: dict | None) -> str:
     <p><b>Status:</b> {escape(adr["status"])}</p>
     <p><b>Decision:</b> {escape(adr["decision"])}</p>
     <p><b>Consequences:</b> {escape(adr["consequences"])}</p>
-  </div>"""
+    </div>"""
+
+
+def render_markdown_turn(turn: dict, challenge: bool = False) -> str:
+    info = persona_info(turn["persona_id"], turn.get("display_name"))
+    speaker = f"**{info['name']}"
+    if challenge:
+        speaker += f" -> {turn['target']}"
+    speaker += ":**"
+    return f"{speaker} {turn['text']}\n\n_Verdict: {turn['verdict']}_"
+
+
+def render_markdown_peer_rating(data: dict) -> str:
+    position_ids = [item["id"] for item in data["positions"]]
+    position_lines = [
+        f"- **Position {item['id']}** - {item['summary']}"
+        for item in data["positions"]
+    ]
+
+    header = "| Rater \\ Position | " + " | ".join(position_ids) + " |"
+    separator = "|---|" + "|".join("---" for _ in position_ids) + "|"
+    rows = []
+    for row in data["ratings"]:
+        info = persona_info(row["persona_id"], row.get("display_name"))
+        cells = []
+        for cell in row["cells"]:
+            if cell.get("self"):
+                cells.append("-")
+            else:
+                cells.append(f'{cell["score"]} ({cell["note"]})')
+        rows.append(f"| {info['short']} | " + " | ".join(cells) + " |")
+
+    averages = [str(item["score"]) for item in data["averages"]]
+    rows.append("| **Average** | " + " | ".join(averages) + " |")
+
+    ranking = []
+    for idx, item in enumerate(data["ranking"], start=1):
+        ranking.append(
+            f'{idx}. Position {item["position_id"]} ({item["score"]}) - {item["summary"]}'
+        )
+
+    reveal = ", ".join(
+        f'{item["id"]} = {persona_info(item["persona_id"], item.get("display_name"))["short"]}'
+        for item in data["positions"]
+    )
+
+    return "\n".join(
+        [
+            "Positions A-E (shuffled, authors hidden) scored 1-10 by each persona (own = -):",
+            "",
+            *position_lines,
+            "",
+            header,
+            separator,
+            *rows,
+            "",
+            "**Ranking:**",
+            *ranking,
+            "",
+            f"**Reveal:** {reveal}. {data['reveal_summary']}",
+        ]
+    )
+
+
+def render_markdown(data: dict) -> str:
+    """Render validated council data to the public Markdown debate format."""
+    validate_input_data(data)
+
+    context = "\n\n".join(data["context"]["paragraphs"])
+    criteria = "\n".join(
+        f'- **{item["label"]}** - {item["text"]}'
+        for item in data["context"]["criteria"]
+    )
+    round1 = "\n\n".join(render_markdown_turn(item) for item in data["round1"])
+    round2 = "\n\n".join(render_markdown_turn(item, challenge=True) for item in data["round2"])
+    round3 = "\n\n".join(render_markdown_turn(item) for item in data["round3"])
+    actions = "\n".join(
+        f"  {idx}. {item}"
+        for idx, item in enumerate(data["final_verdict"]["next_actions"], start=1)
+    )
+
+    verdict = data["final_verdict"]
+    confidence = verdict["confidence"]
+    parts = [
+        "# LLM Council Debate",
+        "",
+        "## Topic",
+        data["topic"],
+        "",
+        "## Naive Single-Model Take",
+        "> _What a single one-shot model says before the council convenes - shown as a baseline, not an endorsement._",
+        "",
+        data["naive"]["answer"],
+        "",
+        f"**Why this is risky:** {data['naive']['risk']}",
+        "",
+        "## Context",
+        context,
+        "",
+        "**Inferred decision criteria:**",
+        criteria,
+        "",
+        f"**Assumption:** {data['context']['assumption']}",
+        "",
+        "## Round 1: Opening Positions",
+        round1,
+        "",
+        "## Peer Rating (Anonymized)",
+        render_markdown_peer_rating(data["peer_rating"]),
+        "",
+        "## Round 2: Challenges",
+        round2,
+        "",
+        "## Round 3: Rebuttals",
+        round3,
+        "",
+        "## Final Verdict",
+        f"- **Best argument:** {verdict['best_argument']}",
+        f"- **Biggest risk:** {verdict['biggest_risk']}",
+        f"- **Key tradeoff:** {verdict['key_tradeoff']}",
+        f"- **Consensus:** {verdict['consensus']}",
+        f"- **Recommendation:** {verdict['recommendation']}",
+        f"- **Confidence level:** {confidence['level']} - {confidence['text']}",
+        "- **Next 3 actions:**",
+        actions,
+    ]
+
+    if data.get("adr"):
+        parts.extend(
+            [
+                "",
+                "## ADR snippet",
+                f"- **Status:** {data['adr']['status']}",
+                f"- **Decision:** {data['adr']['decision']}",
+                f"- **Consequences:** {data['adr']['consequences']}",
+            ]
+        )
+
+    return "\n".join(parts) + "\n"
 
 
 def stance_css(buckets: list[dict]) -> str:
@@ -420,17 +558,38 @@ def validate_input_data(data: dict) -> None:
         raise ValueError("round1, round2, and round3 must each contain exactly 5 turns")
     if len(data["stance_buckets"]) < 2:
         raise ValueError("stance_buckets must contain at least two buckets")
+    stance_keys = {item["key"] for item in data["stance_buckets"]}
     if len(data["evolution"]["rows"]) != 5:
         raise ValueError("evolution.rows must contain exactly 5 personas")
     for row in data["evolution"]["rows"]:
+        persona_info(row["persona_id"], row.get("display_name"))
         if len(row["rounds"]) != 3:
             raise ValueError("each evolution row must contain exactly 3 rounds")
+        for item in row["rounds"]:
+            if item["stance"] not in stance_keys:
+                raise ValueError(f"unknown stance bucket in evolution: {item['stance']}")
+    for round_name in ("round1", "round2", "round3"):
+        for turn in data[round_name]:
+            persona_info(turn["persona_id"], turn.get("display_name"))
     if len(data["peer_rating"]["positions"]) != 5:
         raise ValueError("peer_rating.positions must contain exactly 5 items")
     if len(data["peer_rating"]["ratings"]) != 5:
         raise ValueError("peer_rating.ratings must contain exactly 5 raters")
     if len(data["peer_rating"]["averages"]) != 5:
         raise ValueError("peer_rating.averages must contain exactly 5 values")
+    if len(data["peer_rating"]["ranking"]) != 5:
+        raise ValueError("peer_rating.ranking must contain exactly 5 values")
+    for position in data["peer_rating"]["positions"]:
+        persona_info(position["persona_id"], position.get("display_name"))
+    for row in data["peer_rating"]["ratings"]:
+        persona_info(row["persona_id"], row.get("display_name"))
+        if len(row["cells"]) != 5:
+            raise ValueError("each peer_rating row must contain exactly 5 cells")
+        for cell in row["cells"]:
+            if cell.get("self"):
+                continue
+            if not 1 <= cell["score"] <= 10:
+                raise ValueError("peer_rating scores must be between 1 and 10")
     if len(data["final_verdict"]["next_actions"]) != 3:
         raise ValueError("final_verdict.next_actions must contain exactly 3 items")
     score = data["final_verdict"]["confidence"]["score"]
@@ -498,6 +657,17 @@ def cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_render_markdown(args: argparse.Namespace) -> int:
+    data = read_json(Path(args.input))
+    markdown = render_markdown(data)
+    if args.output:
+        Path(args.output).write_text(markdown)
+        print(args.output)
+    else:
+        print(markdown, end="")
+    return 0
+
+
 def cmd_validate_input(args: argparse.Namespace) -> int:
     data = read_json(Path(args.input))
     try:
@@ -520,6 +690,46 @@ def cmd_validate_html(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate_artifacts(args: argparse.Namespace) -> int:
+    errors = []
+    examples_dir = ROOT / "examples"
+    output_dir = ROOT / "llm-council-output"
+
+    json_paths = sorted(examples_dir.glob("*.json"))
+    html_paths = sorted(output_dir.glob("*.html"))
+
+    if not json_paths:
+        errors.append(f"no example JSON files found in {examples_dir}")
+    if not html_paths:
+        errors.append(f"no HTML artifacts found in {output_dir}")
+
+    for path in json_paths:
+        try:
+            validate_input_data(read_json(path))
+            print(f"input OK: {path.relative_to(ROOT)}")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"{path.relative_to(ROOT)}: {exc}")
+
+    for path in html_paths:
+        try:
+            html_errors = validate_html_text(path.read_text())
+        except OSError as exc:
+            errors.append(f"{path.relative_to(ROOT)}: {exc}")
+            continue
+        if html_errors:
+            errors.extend(f"{path.relative_to(ROOT)}: {error}" for error in html_errors)
+        else:
+            print(f"html OK: {path.relative_to(ROOT)}")
+
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+
+    print(f"artifact set OK: {len(json_paths)} input(s), {len(html_paths)} HTML artifact(s)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -529,6 +739,11 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--output", help="output HTML path")
     render.set_defaults(func=cmd_render)
 
+    render_md = sub.add_parser("render-markdown", help="render council JSON to Markdown")
+    render_md.add_argument("input", help="path to structured council JSON")
+    render_md.add_argument("--output", help="output Markdown path")
+    render_md.set_defaults(func=cmd_render_markdown)
+
     validate_input = sub.add_parser("validate-input", help="validate council JSON")
     validate_input.add_argument("input", help="path to structured council JSON")
     validate_input.set_defaults(func=cmd_validate_input)
@@ -536,6 +751,12 @@ def build_parser() -> argparse.ArgumentParser:
     validate_html = sub.add_parser("validate-html", help="validate rendered council HTML")
     validate_html.add_argument("input", help="path to rendered HTML file")
     validate_html.set_defaults(func=cmd_validate_html)
+
+    validate_artifacts = sub.add_parser(
+        "validate-artifacts",
+        help="validate every example JSON file and committed HTML artifact",
+    )
+    validate_artifacts.set_defaults(func=cmd_validate_artifacts)
 
     return parser
 

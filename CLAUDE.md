@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A **Claude Code / Cursor Agent Skill authoring workspace**. It holds:
 
 - `skills/` — skill packages (source of truth); install with `scripts/install-skills.sh`
-- `High critical project mock/` — code-aware fixture for council debates
+- `url-shortener-fixture/` — code-aware fixture for council debates
 - `llm-council-output/` — rendered debate HTML artifacts
 - `index.html` — landing page
 
@@ -37,7 +37,7 @@ In some managed environments, copying to `~/.cursor/skills` or `.cursor/skills` 
 |-----------|-------------------|
 | `skills/llm-council/` | `llm-council` |
 
-`skills/llm-council/`: 6-persona debate (5 debaters + Judge), 4 rounds, HTML output contract. Keep `SKILL.md`, `agents/openai.yaml`, and `references/debate-framework.md` in sync.
+`skills/llm-council/`: 6-persona debate (5 debaters + Judge), 4 rounds, HTML output contract. Keep `SKILL.md`, `agents/agents.yaml`, and `references/debate-framework.md` in sync.
 
 ## Council renderer / validator
 
@@ -56,7 +56,7 @@ Use this tool when changing the HTML contract or the example debate structure so
 ## High critical project mock (fixture)
 
 ```bash
-cd "High critical project mock"
+cd url-shortener-fixture
 python3 cli.py shorten https://example.com
 python3 cli.py resolve 1
 ```
@@ -64,7 +64,7 @@ python3 cli.py resolve 1
 Tests (no pytest in minimal sandbox):
 
 ```bash
-cd "High critical project mock" && python3 -c "
+cd url-shortener-fixture && python3 -c "
 import test_shortener as t
 for n in dir(t):
     if n.startswith('test_'): getattr(t, n)(); print('PASS', n)"

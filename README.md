@@ -1,78 +1,117 @@
-# LLM Council — Agent Skill
+# LLM Council
 
-**LLM Council** is a **Cursor / Claude Code Agent Skill** that runs a structured 5-persona debate (plus Judge), blind peer-rates opening arguments, and outputs a committed verdict—**markdown**, an optional **ADR snippet**, and **offline HTML** under [`llm-council-output/`](llm-council-output/).
+**LLM Council** is an AI ADR/RFC decision council for engineering teams. It turns an architecture question, design proposal, or repo-grounded technical tradeoff into a structured adversarial review, then forces a committed verdict your team can paste into an ADR, RFC, PR, or design doc.
 
-Use it to pressure-test architecture choices, design decisions, tech comparisons (`X vs Y`), papers, and red-team plans—not a single-shot pros/cons list.
+It replaces the usual "here are some pros and cons" LLM answer with a fixed council protocol: opening stances, blind peer rating, named challenges, rebuttals, and a Judge who must commit to a recommendation with confidence, risks, tradeoffs, and three concrete next actions.
+
+Output: **full Markdown debate**, **ADR snippet**, validated council JSON, and an **offline HTML artifact** under [`llm-council-output/`](llm-council-output/) you can drop into a PR, Slack, or wiki.
+
+Impact target: turn a 60–90 minute ADR/RFC prep loop into a 5–10 minute council run + edit pass — roughly **80–90% less decision-artifact prep time** — while replacing one unchallenged model answer with a **22-call, 6-seat review protocol**.
 
 **Landing page:** open [`index.html`](index.html) in a browser
 
-## Prove It Locally
+## Who is this for?
 
-This repo now includes a real local renderer/validator for the HTML contract:
+| Role | Example use |
+|------|-------------|
+| **Staff / senior engineers** | Pressure-test an ADR before it becomes the team default |
+| **Tech leads** | Turn "Kafka or RabbitMQ?" / "Postgres or Redis?" into an auditable recommendation |
+| **Engineering managers** | Attach the HTML artifact to an RFC so tradeoffs and objections are visible |
+| **Platform teams** | Review migrations, infrastructure bets, and operational risk with a repeatable protocol |
+| **Maintainers** | Run code-aware reviews that cite real modules, tests, and missing boundaries |
 
-```bash
-./scripts/run-demo.sh
-```
+You don't need Cursor or Claude Code. If you have an `ANTHROPIC_API_KEY`, you can run a debate from the terminal in two commands.
 
-That command:
+## Impact numbers
 
-- validates the structured debate input
-- renders the self-contained HTML artifact
-- validates the generated HTML contract
-- runs the council tool tests
-
-If you want the steps individually:
-
-```bash
-python3 scripts/council_tool.py validate-input examples/sequential-vs-random-codes.json
-python3 scripts/council_tool.py render examples/sequential-vs-random-codes.json --output llm-council-output/sequential-vs-random-codes.html
-python3 scripts/council_tool.py validate-html llm-council-output/sequential-vs-random-codes.html
-```
-
-What this adds:
-
-- `scripts/council_tool.py` — renders structured council JSON to the promised self-contained HTML
-- `scripts/run-demo.sh` — one-command proof path for the demo
-- `validate-input` — checks required debate structure before rendering
-- `validate-html` — checks the generated artifact against the required HTML contract
-- `examples/sequential-vs-random-codes.json` — runnable sample input, not just a screenshot artifact
-
-You can also run the tool tests with:
-
-```bash
-python3 -m unittest tests.test_council_tool
-```
-
-## Key highlights
-
-- **6-role debate engine** — 5 specialist debaters + a silent Judge, run as a fixed **4-round protocol** (Opening → blind Peer Rating → Challenges → Rebuttals → Verdict), preceded by a **Round 0 naive baseline** that captures the answer a single one-shot model would give, as an honest before/after contrast.
-- **Blind peer rating** — Round 1 positions are stripped of authorship, shuffled to `A`–`E`, and scored **1–10** (rigor + usefulness) by every *other* persona. Ratings reflect argument quality, not reputation — no persona scores itself.
-- **Code-aware grounding** — when the topic names a repo or path, the agent reads `README` → entrypoints → core modules → tests *before* Round 1, so personas can attack the **premise** ("wrong question for this codebase"), not an imagined system.
-- **Deterministic output contract** — a fixed Markdown template **and** a precise HTML class/`data-*` schema both live in `SKILL.md`, so every run is structurally identical and machine-checkable.
-- **Self-contained HTML artifact** — each debate renders to one offline `.html` (inlined CSS/JS, **zero CDN**) with a convergence grid, peer-rating heatmap, ranking bars, and a scroll-animated confidence gauge. Shareable straight into a PR, Slack, or wiki.
-- **Decision-log ready** — architecture topics emit an **ADR snippet** (Status / Decision / Consequences) that pastes directly into a decision record.
-- **Zero runtime dependencies** — no server, no API keys in the skill, no build step. The whole procedure runs inside the agent session.
-- **Portable** — [`agents/openai.yaml`](skills/llm-council/agents/openai.yaml) mirrors the same roster, flow, temperatures, and validation checklist for OpenAI-style multi-agent runners.
+| Metric | Number | Why it matters |
+|--------|--------|----------------|
+| **ADR/RFC prep time reduction** | **80–90% target** | Replace a 60–90 min manual draft/review prep loop with a 5–10 min council artifact plus human edit pass |
+| **Agentic review coverage** | **22 model calls** | 1 naive baseline + 5 openings + 5 blind peer ratings + 5 challenges + 5 rebuttals + 1 Judge |
+| **Decision lenses per run** | **5 expert perspectives** | Fundamentals, evidence, systems/ops, red-team risk, and user/product impact |
+| **Judge-gating discipline** | **100% tested** | The Judge is not called until Round 4; `tests/test_run_agents.py` asserts the final call is the only Judge call |
+| **Artifact validation coverage** | **100% of committed examples** | `validate-artifacts` checks every example JSON and every committed HTML artifact |
+| **Shareability overhead** | **0 external runtime deps** | Generated HTML inlines CSS/JS and opens offline in a browser |
+| **Decision output density** | **3 reusable artifacts** | Markdown debate, ADR snippet, and offline HTML record from the same validated JSON |
 
 ## Quick start
 
-1. **Install** all skills: `./scripts/install-skills.sh` (see [Install](#install)).
-2. **Open** this repo in Cursor or Claude Code and start a **new session** (skills load at startup).
-3. **Invoke** with a trigger phrase, for example:
+### Option A — Cursor / Claude Code agent skill
+
+Install the skill into your agent environment, then invoke it with natural language:
+
+```bash
+./scripts/install-skills.sh              # Cursor (personal)
+./scripts/install-skills.sh --target claude   # Claude Code
+```
+
+Start a **new session**, then type any trigger phrase:
 
 ```text
 LLM Council: Should we use Kafka or RabbitMQ for ~10k events/sec? Small ops team; need replay.
 ```
 
-**Code-aware** (reads the fixture repo before debating):
+The skill auto-invokes on: `council`, `debate`, `pressure-test`, `red team`, `ADR`, `which should we use`, `X vs Y`, or a repo path + design question.
 
-```text
-/llm-council Should High critical project mock use Postgres or Redis for persistence?
+See [Install](#install) for scoped/symlink options, and [Trigger phrases](#trigger-phrases) for the full list.
+
+### Option B — Python CLI (no agent required)
+
+Don't have Cursor or Claude Code? Run a debate directly from the terminal:
+
+```bash
+pip install -r requirements.txt
+export ANTHROPIC_API_KEY=sk-ant-...
+
+python3 scripts/run_agents.py --topic "ADR: Kafka vs RabbitMQ for event ingestion" --context "10k events/sec, small ops team"
+python3 scripts/run_agents.py --topic "RFC: split the billing service or keep it in the monolith?" --output debate.md
+python3 scripts/run_agents.py --topic "ADR: Postgres or Redis for short-link persistence?" --json-output debate.json
 ```
 
-4. **Review** example HTML: [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) · [`sequential-vs-random-codes.html`](llm-council-output/sequential-vs-random-codes.html)
+`run_agents.py` loads `skills/llm-council/agents/agents.yaml`, makes one model call per configured participant per round, keeps the Judge gated until Round 4, then renders Markdown and self-contained HTML from validated council JSON. `run_debate.py` remains as a single-call compatibility runner for cheaper/faster demos. The default model is `claude-opus-4-8`, overrideable with `--model` or `LLM_COUNCIL_MODEL`.
 
-Full procedure and output contract: [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--topic` | required | The ADR/RFC question or engineering decision to debate |
+| `--context` | — | Repo notes, constraints, stack, scale, deadlines (optional) |
+| `--depth` | `standard` | `quick` / `standard` / `deep` |
+| `--output` | stdout | Write markdown to a file |
+| `--html-output` | `llm-council-output/<title>.html` | Write the offline HTML artifact to a specific path |
+| `--json-output` | — | Save the validated model JSON used to render both artifacts |
+| `--trace-output` | — | `run_agents.py` only: save call order and transcript trace |
+| `--model` | `LLM_COUNCIL_MODEL` or `claude-opus-4-8` | Anthropic model id |
+| `--max-tokens` | `LLM_COUNCIL_MAX_TOKENS` or `16000` | Response budget |
+
+## Prove the tooling locally (no API key needed)
+
+The HTML renderer and validator run entirely offline against a pre-built example:
+
+```bash
+./scripts/run-demo.sh
+```
+
+That command validates the structured debate input, renders the HTML artifact, validates the HTML contract, and runs the unit tests — no API key required. Individual steps:
+
+```bash
+python3 scripts/council_tool.py validate-input examples/sequential-vs-random-codes.json
+python3 scripts/council_tool.py render examples/sequential-vs-random-codes.json --output llm-council-output/sequential-vs-random-codes.html
+python3 scripts/council_tool.py validate-html llm-council-output/sequential-vs-random-codes.html
+python3 scripts/council_tool.py validate-artifacts
+python3 -m unittest
+```
+
+## Key highlights
+
+- **Executable agents.yaml runner** — `scripts/run_agents.py` runs a **22-call council** and only calls the Judge in Round 4.
+- **6-role debate engine** — 5 specialist debaters + a silent Judge, run as a fixed **4-round protocol** (Opening → blind Peer Rating → Challenges → Rebuttals → Verdict), preceded by a **Round 0 naive baseline** that captures the answer a single one-shot model would give, as an honest before/after contrast.
+- **Blind peer rating** — Round 1 positions are stripped of authorship, shuffled to `A`–`E`, and scored **1–10** (rigor + usefulness) by every *other* persona. Ratings reflect argument quality, not reputation — no persona scores itself.
+- **Code-aware grounding** — when the topic names a repo or path, the agent reads `README` → entrypoints → core modules → tests *before* Round 1, so personas can attack the **premise** ("wrong question for this codebase"), not an imagined system.
+- **Deterministic output contract** — a fixed Markdown template **and** a precise HTML class/`data-*` schema both live in `SKILL.md`, so every run is structurally identical and machine-checkable; committed examples are covered by **100% artifact validation**.
+- **Self-contained HTML artifact** — each debate renders to one offline `.html` (inlined CSS/JS, **0 external runtime deps**) with a convergence grid, peer-rating heatmap, ranking bars, and a scroll-animated confidence gauge. Shareable straight into a PR, Slack, or wiki.
+- **Decision-log ready** — architecture topics emit an **ADR snippet** (Status / Decision / Consequences) that pastes directly into a decision record.
+- **Zero runtime dependencies** — no server, no API keys in the skill, no build step. The whole procedure runs inside the agent session.
+- **Portable** — [`agents/agents.yaml`](skills/llm-council/agents/agents.yaml) mirrors the same roster, flow, temperatures, and validation checklist for OpenAI-style multi-agent runners.
+
 
 ## Trigger phrases
 
@@ -92,11 +131,13 @@ Optional context and criteria can be omitted—the skill infers defaults and pro
 | Path | Purpose |
 |------|---------|
 | [`skills/`](skills/) | **Skill packages** (source of truth) — install with [`scripts/install-skills.sh`](scripts/install-skills.sh) |
-| [`skills/llm-council/`](skills/llm-council/) | Council debate skill — rubric, architecture reference, HTML assets, OpenAI agent config |
-| [`High critical project mock/`](High%20critical%20project%20mock/) | **Code-aware fixture** — minimal URL shortener to debate against real code |
+| [`skills/llm-council/`](skills/llm-council/) | Council debate skill — rubric, architecture reference, HTML assets, multi-agent config (agents.yaml) |
+| [`url-shortener-fixture/`](url-shortener-fixture/) | **Code-aware fixture** — minimal URL shortener to debate against real code |
 | [`llm-council-output/`](llm-council-output/) | **Example debates** — self-contained HTML (offline-shareable) |
 | [`examples/`](examples/) | **Runnable structured council inputs** |
-| [`scripts/council_tool.py`](scripts/council_tool.py) | Real local renderer + validator for the HTML contract |
+| [`scripts/council_tool.py`](scripts/council_tool.py) | Real local Markdown/HTML renderer + validator for the output contract |
+| [`scripts/run_agents.py`](scripts/run_agents.py) | Executable `agents.yaml` runner; one call per persona per round, Judge gated to Round 4 |
+| [`scripts/run_debate.py`](scripts/run_debate.py) | Single-call compatibility runner via Anthropic API; validates model JSON and always renders HTML |
 | [`scripts/run-demo.sh`](scripts/run-demo.sh) | One-command demo proof path |
 | [`CLAUDE.md`](CLAUDE.md) | Authoring notes (sync, sandbox, test commands) |
 
@@ -139,7 +180,7 @@ The Judge is **gated to Round 4** — it never debates in Rounds 1–3. Every de
 
 ### Persona model
 
-Five debaters + one Judge. The roster stays at **five seats** — swaps substitute, never add. Temperatures are tuned per lens (`openai.yaml`): hotter for the Skeptic, cold for the Judge.
+Five debaters + one Judge. The roster stays at **five seats** — swaps substitute, never add. Temperatures are tuned per lens (`agents.yaml`): hotter for the Skeptic, cold for the Judge.
 
 | Persona | Lens | Temp |
 |---------|------|------|
@@ -150,7 +191,7 @@ Five debaters + one Judge. The roster stays at **five seats** — swaps substitu
 | 👤 Product / User Advocate | User value, adoption | 0.7 |
 | ⚖️ Judge / Synthesizer | Synthesis only (silent until R4) | 0.3 |
 
-**Security council swap:** for auth, data-handling, or threat-model topics, Product / User Advocate is replaced by a **Security Engineer** (attack surface, trust boundaries, authn/authz, blast radius) via `persona_swaps` in `openai.yaml`.
+**Security council swap:** for auth, data-handling, or threat-model topics, Product / User Advocate is replaced by a **Security Engineer** (attack surface, trust boundaries, authn/authz, blast radius) via `persona_swaps` in `agents.yaml`.
 
 ### HTML class / `data-*` contract
 
@@ -176,7 +217,7 @@ Assets are small and bundle-only: [`council-style.css`](skills/llm-council/asset
 | **Adversarial by default** | Manufactured disagreement in Rounds 1–2; blind peer rating |
 | **Progressive disclosure** | Rubric in `references/`; assets loaded only at HTML render |
 | **Deterministic outputs** | Markdown template + HTML schema fixed in `SKILL.md` |
-| **Portable** | `openai.yaml` mirrors the flow for non-Cursor runners |
+| **Portable** | `agents.yaml` mirrors the flow for non-Cursor runners |
 | **No runtime deps** | No server, no API keys in the skill — runs entirely in the agent |
 
 ## Why this is a strong Agent Skill
@@ -185,7 +226,7 @@ Assets are small and bundle-only: [`council-style.css`](skills/llm-council/asset
 - **Progressive disclosure** — rubric in [`references/debate-framework.md`](skills/llm-council/references/debate-framework.md); architecture in [`references/architecture.md`](skills/llm-council/references/architecture.md)  
 - **Deterministic output contract** — markdown template + HTML class/`data-*` schema in `SKILL.md`  
 - **Bundled assets** — `assets/council-style.css` and `assets/council.js` inlined into each HTML artifact  
-- **Portable** — [`agents/openai.yaml`](skills/llm-council/agents/openai.yaml) mirrors the same roster and flow  
+- **Portable** — [`agents/agents.yaml`](skills/llm-council/agents/agents.yaml) mirrors the same roster and flow  
 
 ## Strengths
 
@@ -193,9 +234,9 @@ Assets are small and bundle-only: [`council-style.css`](skills/llm-council/asset
 - **Bias-resistant scoring.** Blind, shuffled peer rating with self-exclusion means a position earns its rank on rigor and usefulness, not on which persona authored it.
 - **Honest baseline.** The Round 0 naive take is written as a genuine one-shot answer (agreeable, hedgy, ungrounded) and then critiqued — never a strawman — so the council's added value is visible, not assumed.
 - **Grounded in real code.** Code-aware mode reads the actual repo first and lets personas reject the question's premise when the codebase doesn't match it. Debates cite real modules and tests, not an imagined system.
-- **Single source of truth.** `SKILL.md` defines triggers, procedure, the Markdown template, and the HTML contract in one place; `references/` and `openai.yaml` are kept in sync with it.
+- **Single source of truth.** `SKILL.md` defines triggers, procedure, the Markdown template, and the HTML contract in one place; `references/` and `agents.yaml` are kept in sync with it.
 - **Shareable evidence.** Output is a single offline HTML file that renders the whole debate — convergence story, peer heatmap, confidence — with no server, no build, and no network.
-- **Low ceremony, fast adoption.** One install script, auto-triggering by `description`, and a code-aware fixture ([`High critical project mock/`](High%20critical%20project%20mock/)) to try it against immediately.
+- **Low ceremony, fast adoption.** One install script, auto-triggering by `description`, and a code-aware fixture ([`url-shortener-fixture/`](url-shortener-fixture/)) to try it against immediately.
 
 ## Why this project wins
 
@@ -205,7 +246,7 @@ Most "ask the LLM" decision aids collapse to one of two failure modes: a single 
 2. **It scores arguments blind.** Anonymized, shuffled, self-excluded peer rating turns "who sounds confident" into "whose argument actually holds up" — a built-in quality signal you can read off the heatmap.
 3. **It refuses to fence-sit.** Every persona commits each round; the Judge commits at the end with a confidence level and the next 3 concrete actions. You leave with a decision and an ADR snippet, not homework.
 4. **It tells the truth about itself.** The naive baseline makes the council's marginal value explicit and contrastable, instead of asking you to take the elaborate output on faith.
-5. **It's grounded, portable, and zero-dependency.** Code-aware reads keep debates honest to the real repo; the OpenAI mirror makes the protocol portable; and the self-contained HTML means the result is shareable anywhere with nothing to install.
+5. **It's grounded, portable, and zero-dependency.** Code-aware reads keep debates honest to the real repo; the portable agents.yaml mirror makes the protocol portable; and the self-contained HTML means the result is shareable anywhere with nothing to install.
 
 The result is a repeatable, auditable decision artifact — the same protocol, the same template, the same machine-checkable HTML schema on every run — that you can paste into a PR or a decision log and defend.
 
@@ -215,7 +256,7 @@ The result is a repeatable, auditable decision artifact — the same protocol, t
 skills/
 ├── llm-council/
 │   ├── SKILL.md
-│   ├── agents/openai.yaml
+│   ├── agents/agents.yaml
 │   ├── references/debate-framework.md
 │   └── assets/
 ```
@@ -277,21 +318,24 @@ In some managed environments, writing to `~/.cursor/skills` or `.cursor/skills` 
 
 ## How to invoke
 
-**Generic debate:**
+**Engineering / infrastructure:**
 
 ```text
-Run an LLM Council debate: Should we use Kafka or RabbitMQ for our event pipeline?
+LLM Council: Should we use Kafka or RabbitMQ for our event pipeline?
 Context: ~10k events/sec, at-least-once delivery, small ops team.
-Criteria: operational simplicity, replay, cost.
 ```
 
-**Against the Acme fixture** (see [`High critical project mock/sample-questions`](High%20critical%20project%20mock/sample-questions)):
+**Service ownership / org design:**
+
+```text
+pressure-test RFC: split billing into its own service or keep it inside the monolith?
+Context: 30-engineer org, monthly releases, weak observability, billing incidents are rising.
+```
+
+**Code-aware** (reads the fixture repo before debating — see [`url-shortener-fixture/sample-questions`](url-shortener-fixture/sample-questions)):
 
 ```text
 /llm-council Should this repo use Postgres or Redis for persistence?
-```
-
-```text
 /llm-council Is base-62 the right encoding for this shortener, or should we use UUIDs?
 ```
 
@@ -304,9 +348,9 @@ Criteria: operational simplicity, replay, cost.
 | Decision criteria | No | Inferred if omitted |
 | Output depth | No | `quick`, `standard` (default), or `deep` |
 
-## High critical project mock (code-aware fixture)
+## url-shortener-fixture (code-aware fixture)
 
-[`High critical project mock/`](High%20critical%20project%20mock/) is a minimal in-memory URL shortener with base-62 codes. It exists so council debates cite real modules, tests, and limitations—not an imagined system.
+[`url-shortener-fixture/`](url-shortener-fixture/) is a minimal in-memory URL shortener with base-62 codes. It exists so council debates cite real modules, tests, and limitations—not an imagined system.
 
 | File | Role |
 |------|------|
@@ -317,7 +361,7 @@ Criteria: operational simplicity, replay, cost.
 **CLI** (state persists to `.shortener.json`, so codes survive between commands):
 
 ```bash
-cd "High critical project mock"
+cd "url-shortener-fixture"
 python3 cli.py shorten https://example.com   # -> https://sh.rt/1
 python3 cli.py resolve 1                      # -> https://example.com
 python3 cli.py stats 1                        # -> https://example.com (N clicks)
@@ -326,35 +370,48 @@ python3 cli.py stats 1                        # -> https://example.com (N clicks
 **Tests:**
 
 ```bash
-cd "High critical project mock" && pytest -q
+cd "url-shortener-fixture" && pytest -q
 ```
 
 If `pytest` is not available:
 
 ```bash
-cd "High critical project mock" && python3 -c "
+cd "url-shortener-fixture" && python3 -c "
 import test_shortener as t
 for n in dir(t):
     if n.startswith('test_'): getattr(t, n)(); print('PASS', n)"
 ```
 
-More detail: [`High critical project mock/README.md`](High%20critical%20project%20mock/README.md).
+More detail: [`url-shortener-fixture/README.md`](url-shortener-fixture/README.md).
 
 ## Development workflow
 
-1. Edit files under `skills/` (keep `llm-council` SKILL.md, `agents/openai.yaml`, and `references/debate-framework.md` aligned).
+1. Edit files under `skills/` (keep `llm-council` SKILL.md, `agents/agents.yaml`, and `references/debate-framework.md` aligned).
 2. Run `./scripts/install-skills.sh` (or re-copy manually).
 3. Restart the agent session.
-4. Run a debate against `High critical project mock/` or your own topic.
+4. Run an ADR/RFC debate against `url-shortener-fixture/` or your own engineering decision.
 5. Commit example output under `llm-council-output/` when useful.
 
 See [`CLAUDE.md`](CLAUDE.md) for sandbox and sync notes.
 
 ## Example output
 
-| Artifact | Topic |
-|----------|--------|
-| [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) | Messaging / event pipeline |
-| [`sequential-vs-random-codes.html`](llm-council-output/sequential-vs-random-codes.html) | Short-code scheme (code-aware fixture; reproducible via `./scripts/run-demo.sh`) |
+| Artifact | Topic | Domain |
+|----------|--------|--------|
+| [`kafka-vs-rabbitmq.html`](llm-council-output/kafka-vs-rabbitmq.html) | Kafka vs RabbitMQ for an event pipeline (reproducible from [`examples/kafka-vs-rabbitmq.json`](examples/kafka-vs-rabbitmq.json)) | Infrastructure |
+| [`sequential-vs-random-codes.html`](llm-council-output/sequential-vs-random-codes.html) | Sequential vs random short codes (code-aware; reproducible via `./scripts/run-demo.sh`) | Code design |
 
-Open any `.html` file in a browser—no server required. Markdown structure matches [`skills/llm-council/SKILL.md`](skills/llm-council/SKILL.md).
+Open any `.html` file in a browser — no server required. To generate your own ADR/RFC review, run the agents runner; it prints/writes Markdown and renders the HTML artifact automatically:
+
+```bash
+# ADR decision
+python3 scripts/run_agents.py --topic "ADR: GraphQL or REST for the mobile API?"
+
+# RFC review with trace
+python3 scripts/run_agents.py --topic "RFC: split billing from the monolith?" --context "30 engineers, rising billing incidents" --trace-output billing-council.trace.json
+
+# Single-call compatibility runner
+python3 scripts/run_debate.py --topic "ADR: Monorepo or polyrepo for a 30-engineer org?" --depth deep --output debate.md --json-output debate.json
+```
+
+Markdown and HTML are rendered from the same validated council JSON contract defined in [`scripts/council_tool.py`](scripts/council_tool.py).

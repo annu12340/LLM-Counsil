@@ -14,8 +14,11 @@ python3 "${ROOT}/scripts/council_tool.py" render "${SAMPLE}" --output "${OUTPUT}
 echo "==> Validating rendered HTML contract"
 python3 "${ROOT}/scripts/council_tool.py" validate-html "${OUTPUT}"
 
-echo "==> Running council tool tests"
-python3 -m unittest tests.test_council_tool
+echo "==> Validating all committed examples and HTML artifacts"
+python3 "${ROOT}/scripts/council_tool.py" validate-artifacts
+
+echo "==> Running renderer and runner tests"
+python3 -m unittest tests.test_council_tool tests.test_run_debate tests.test_run_agents
 
 echo ""
 echo "Demo artifact ready:"

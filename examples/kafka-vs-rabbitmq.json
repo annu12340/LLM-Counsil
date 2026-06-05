@@ -1,0 +1,463 @@
+{
+  "title": "Kafka vs RabbitMQ for Event Pipeline",
+  "subtitle": "A structured, adversarial debate among five expert personas, synthesized into a decisive recommendation.",
+  "topic": "Should we use Kafka or RabbitMQ for an event pipeline handling about 10k events/sec with replay needs and a small ops team?",
+  "naive": {
+    "answer": "Kafka is usually the better choice for high-throughput event streaming and replay, while RabbitMQ is often simpler for task queues and request-driven messaging. At 10k events/sec either can work, so the choice depends on whether replay and retention are central requirements or just nice-to-have operations features.",
+    "risk": "That answer is directionally useful but still hedges, treats replay as a vague requirement, and does not price the operational burden for a small team."
+  },
+  "context": {
+    "paragraphs": [
+      "The stated workload is about 10k events/sec, at-least-once delivery, a small operations team, and some need for replay. No hard retention window, consumer count, ordering boundary, or compliance requirement is specified.",
+      "The decision is not a generic broker popularity contest. It turns on whether durable replay is a product contract or only an operational recovery tool."
+    ],
+    "criteria": [
+      {
+        "label": "1. Replay contract",
+        "text": "does the system need a durable event log consumers can independently rewind?"
+      },
+      {
+        "label": "2. Operational load",
+        "text": "can a small team safely run and debug the broker under incident pressure?"
+      },
+      {
+        "label": "3. Delivery semantics",
+        "text": "does the workload need queue-style work distribution or stream-style fan-out?"
+      },
+      {
+        "label": "4. Migration trigger",
+        "text": "is there a concrete point where the simpler broker becomes the wrong platform?"
+      }
+    ],
+    "assumption": "Replay is useful but not yet specified as a long-retention product feature with many independent consumers."
+  },
+  "round1": [
+    {
+      "persona_id": "first_principles",
+      "text": "The fundamental distinction is queue versus log. If the business needs consumers to rewind history independently, that is a log-shaped problem and Kafka is the more natural primitive.",
+      "verdict": "Choose Kafka if replay is a real contract, not a debugging convenience."
+    },
+    {
+      "persona_id": "research",
+      "text": "The evidence gap is the replay requirement. Without a retention window, consumer fan-out count, and ordering boundary, picking Kafka is an assumption masquerading as architecture.",
+      "verdict": "Measure the replay requirement; Kafka only wins if rewindable history is central."
+    },
+    {
+      "persona_id": "systems",
+      "text": "A small ops team should avoid buying a distributed log unless the log is the product. RabbitMQ can handle this rate with simpler day-two operations when the workload is mostly delivery and retry.",
+      "verdict": "Start with RabbitMQ unless durable replay is non-negotiable."
+    },
+    {
+      "persona_id": "skeptic",
+      "text": "Both choices can be wrong if the team cannot name failure modes and retention needs. Kafka can become an ops tax, while RabbitMQ can become a migration trap if replay quietly becomes required.",
+      "verdict": "Neither until replay and retention are made explicit."
+    },
+    {
+      "persona_id": "product",
+      "text": "Users do not care which broker is elegant; they care that events are processed and incidents are recoverable. The smaller team likely ships faster with RabbitMQ unless customers explicitly need historical replay.",
+      "verdict": "RabbitMQ is the better product move unless replay is user-visible."
+    }
+  ],
+  "peer_rating": {
+    "positions": [
+      {
+        "id": "A",
+        "persona_id": "systems",
+        "summary": "Start with RabbitMQ unless durable replay is non-negotiable."
+      },
+      {
+        "id": "B",
+        "persona_id": "skeptic",
+        "summary": "Neither until replay and retention are made explicit."
+      },
+      {
+        "id": "C",
+        "persona_id": "research",
+        "summary": "Measure the replay requirement; Kafka only wins if rewindable history is central."
+      },
+      {
+        "id": "D",
+        "persona_id": "product",
+        "summary": "RabbitMQ is the better product move unless replay is user-visible."
+      },
+      {
+        "id": "E",
+        "persona_id": "first_principles",
+        "summary": "Choose Kafka if replay is a real contract, not a debugging convenience."
+      }
+    ],
+    "ratings": [
+      {
+        "persona_id": "first_principles",
+        "cells": [
+          {
+            "score": 8,
+            "note": "prices operations and keeps the condition explicit"
+          },
+          {
+            "score": 7,
+            "note": "useful caution but delays the decision"
+          },
+          {
+            "score": 8,
+            "note": "correctly demands evidence for replay"
+          },
+          {
+            "score": 7,
+            "note": "good adoption lens, lighter on mechanism"
+          },
+          {
+            "self": true
+          }
+        ]
+      },
+      {
+        "persona_id": "research",
+        "cells": [
+          {
+            "score": 8,
+            "note": "well matched to the stated ops constraint"
+          },
+          {
+            "score": 7,
+            "note": "right uncertainty, less actionable"
+          },
+          {
+            "self": true
+          },
+          {
+            "score": 7,
+            "note": "practical but needs a migration trigger"
+          },
+          {
+            "score": 9,
+            "note": "best primitive-level distinction"
+          }
+        ]
+      },
+      {
+        "persona_id": "systems",
+        "cells": [
+          {
+            "self": true
+          },
+          {
+            "score": 8,
+            "note": "good warning against vague requirements"
+          },
+          {
+            "score": 7,
+            "note": "sound but not enough of a path"
+          },
+          {
+            "score": 8,
+            "note": "keeps team capacity central"
+          },
+          {
+            "score": 8,
+            "note": "right abstraction, conditional enough"
+          }
+        ]
+      },
+      {
+        "persona_id": "skeptic",
+        "cells": [
+          {
+            "score": 7,
+            "note": "may underplay future replay pressure"
+          },
+          {
+            "self": true
+          },
+          {
+            "score": 7,
+            "note": "accurate but still punts"
+          },
+          {
+            "score": 8,
+            "note": "keeps the user-facing need honest"
+          },
+          {
+            "score": 8,
+            "note": "names the real axis of disagreement"
+          }
+        ]
+      },
+      {
+        "persona_id": "product",
+        "cells": [
+          {
+            "score": 8,
+            "note": "most actionable for a small team"
+          },
+          {
+            "score": 7,
+            "note": "valid risk framing but not a decision"
+          },
+          {
+            "score": 7,
+            "note": "evidence-focused but slower to ship"
+          },
+          {
+            "self": true
+          },
+          {
+            "score": 8,
+            "note": "clear conditional rule users can understand"
+          }
+        ]
+      }
+    ],
+    "averages": [
+      {
+        "position_id": "A",
+        "score": 7.8
+      },
+      {
+        "position_id": "B",
+        "score": 7.3
+      },
+      {
+        "position_id": "C",
+        "score": 7.3
+      },
+      {
+        "position_id": "D",
+        "score": 7.5
+      },
+      {
+        "position_id": "E",
+        "score": 8.3
+      }
+    ],
+    "ranking": [
+      {
+        "position_id": "E",
+        "score": 8.3,
+        "summary": "clearest queue-versus-log distinction"
+      },
+      {
+        "position_id": "A",
+        "score": 7.8,
+        "summary": "best operationally grounded recommendation"
+      },
+      {
+        "position_id": "D",
+        "score": 7.5,
+        "summary": "strong product and team-capacity framing"
+      },
+      {
+        "position_id": "B",
+        "score": 7.3,
+        "summary": "useful risk check, less decisive"
+      },
+      {
+        "position_id": "C",
+        "score": 7.3,
+        "summary": "accurate measurement ask, less immediately actionable"
+      }
+    ],
+    "reveal_summary": "The blind scores favored arguments that made replay the deciding variable rather than treating Kafka or RabbitMQ as universally better."
+  },
+  "round2": [
+    {
+      "persona_id": "first_principles",
+      "target": "Systems Engineer",
+      "text": "Your RabbitMQ recommendation is pragmatic, but it risks choosing the wrong primitive if replay means independent consumer rewind. A queue can emulate some recovery, but it is not the same abstraction as a retained log.",
+      "verdict": "Kafka remains the right primitive if replay means rewindable history."
+    },
+    {
+      "persona_id": "research",
+      "target": "Product / User Advocate",
+      "text": "Saying users only care about outcomes is true but incomplete. If users need auditability, backfills, or rebuilding projections, historical replay becomes part of the product outcome.",
+      "verdict": "User value must include whether history can be rebuilt."
+    },
+    {
+      "persona_id": "systems",
+      "target": "First-Principles Thinker",
+      "text": "The primitive distinction is right, but architecture also has to survive day two. Without a named retention window and consumer model, Kafka optimizes for a future the team has not committed to.",
+      "verdict": "RabbitMQ now, Kafka only when replay is specified as a durable contract."
+    },
+    {
+      "persona_id": "skeptic",
+      "target": "Research Scientist",
+      "text": "Measurement cannot become an excuse for indecision. The team can pick RabbitMQ if it also writes down the trigger that forces Kafka later.",
+      "verdict": "Pick RabbitMQ only with a hard Kafka migration trigger."
+    },
+    {
+      "persona_id": "product",
+      "target": "Skeptic / Red Team",
+      "text": "Neither is too expensive as a product answer. The team needs a default that ships, plus a clearly documented escape hatch if replay becomes user-visible.",
+      "verdict": "RabbitMQ with an explicit replay-triggered escape hatch."
+    }
+  ],
+  "round3": [
+    {
+      "persona_id": "first_principles",
+      "text": "I update from a Kafka lean to a conditional recommendation. Given the small ops team and unspecified retention, RabbitMQ is acceptable now, but only because the decision rule preserves the queue-versus-log boundary.",
+      "verdict": "RabbitMQ now; switch to Kafka when durable rewind is a product contract."
+    },
+    {
+      "persona_id": "research",
+      "text": "I agree with the conditional path. The missing evidence should become an action item: define retention window, consumer fan-out, and replay frequency before the broker choice hardens.",
+      "verdict": "RabbitMQ provisionally; Kafka if measured replay needs cross the threshold."
+    },
+    {
+      "persona_id": "systems",
+      "text": "Holding. RabbitMQ fits the current operating constraints and throughput target, and the architecture should keep events and consumers decoupled enough to migrate if replay becomes central.",
+      "verdict": "RabbitMQ now with migration seams and replay metrics."
+    },
+    {
+      "persona_id": "skeptic",
+      "text": "I accept RabbitMQ as the default only if the team writes down the non-negotiable Kafka trigger. Otherwise the simpler choice becomes a trap rather than a pragmatic step.",
+      "verdict": "RabbitMQ, but only with a written Kafka trigger."
+    },
+    {
+      "persona_id": "product",
+      "text": "The sharpened recommendation works: ship the simpler operational path now, and make the product promise around replay explicit before customers depend on it.",
+      "verdict": "RabbitMQ now; revisit when replay becomes a customer promise."
+    }
+  ],
+  "stance_buckets": [
+    {
+      "key": "kafka",
+      "tone": "accent"
+    },
+    {
+      "key": "rabbit",
+      "tone": "good"
+    },
+    {
+      "key": "neither",
+      "tone": "warn"
+    },
+    {
+      "key": "undecided",
+      "tone": "muted"
+    }
+  ],
+  "evolution": {
+    "summary": "The council starts split between Kafka, RabbitMQ, and neither. The challenges force replay to become the deciding variable, and the final convergence is RabbitMQ now with a concrete Kafka trigger.",
+    "rows": [
+      {
+        "persona_id": "first_principles",
+        "rounds": [
+          {
+            "stance": "kafka",
+            "label": "Kafka"
+          },
+          {
+            "stance": "kafka",
+            "label": "Kafka"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ",
+            "changed": true
+          }
+        ],
+        "final_stance": "RabbitMQ now; Kafka when durable rewind is contractual"
+      },
+      {
+        "persona_id": "research",
+        "rounds": [
+          {
+            "stance": "kafka",
+            "label": "Kafka"
+          },
+          {
+            "stance": "kafka",
+            "label": "Kafka"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ",
+            "changed": true
+          }
+        ],
+        "final_stance": "RabbitMQ provisionally; Kafka if replay measurements justify it"
+      },
+      {
+        "persona_id": "systems",
+        "rounds": [
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          }
+        ],
+        "final_stance": "RabbitMQ now with migration seams"
+      },
+      {
+        "persona_id": "skeptic",
+        "rounds": [
+          {
+            "stance": "neither",
+            "label": "Neither"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ",
+            "changed": true
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          }
+        ],
+        "final_stance": "RabbitMQ only with a written Kafka trigger"
+      },
+      {
+        "persona_id": "product",
+        "rounds": [
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          },
+          {
+            "stance": "rabbit",
+            "label": "RabbitMQ"
+          }
+        ],
+        "final_stance": "RabbitMQ now; revisit when replay is customer-visible"
+      }
+    ]
+  },
+  "final_verdict": {
+    "best_argument": "The best argument was the First-Principles queue-versus-log distinction, tempered by the Systems Engineer's operational constraint: Kafka is right for durable replay, but RabbitMQ is the safer default when replay is not yet a product contract.",
+    "biggest_risk": "The biggest risk is letting a vague replay requirement drift until RabbitMQ becomes a trap or Kafka becomes an unnecessary operational burden.",
+    "key_tradeoff": "RabbitMQ buys lower operational load and faster delivery for a small team; Kafka buys retained history and independent rewind at the cost of more complex operations.",
+    "consensus": "All five personas converged on replay as the deciding variable. With replay underspecified, RabbitMQ is acceptable now only if the team documents the Kafka trigger.",
+    "recommendation": "Use RabbitMQ for the current pipeline, and write a hard migration trigger: move to Kafka if replay becomes a customer-visible or compliance-backed requirement, if consumers need independent rewind over a meaningful retention window, or if backfills become routine.",
+    "confidence": {
+      "level": "medium-high",
+      "label": "MEDIUM-HIGH",
+      "pill_class": "med",
+      "score": 82,
+      "text": "The recommendation is strong for the stated small-team constraint, but confidence depends on validating the real retention and replay requirements."
+    },
+    "next_actions": [
+      "Define the replay contract this week: retention window, consumer count, rewind frequency, and whether replay is customer-visible.",
+      "Start with RabbitMQ only if replay is operational recovery rather than a product promise; document the exact Kafka migration trigger in the ADR.",
+      "Instrument event volume, consumer lag, failed-message recovery, and backfill requests so the trigger is based on observed pressure rather than taste."
+    ]
+  },
+  "adr": {
+    "status": "proposed",
+    "decision": "Adopt RabbitMQ for the current event pipeline, with a documented migration trigger to Kafka when durable replay becomes a product or compliance requirement.",
+    "consequences": "This lowers operational load for the small team and keeps shipping speed high, but it requires discipline around replay metrics and may require migration work if event history becomes central."
+  },
+  "bottom_line": "Use RabbitMQ now because the team is small and replay is underspecified. Treat Kafka as the deliberate next step when retained, independently rewindable history becomes part of the product contract.",
+  "footer_codebase": "standalone infrastructure decision"
+}

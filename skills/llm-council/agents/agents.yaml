@@ -1,22 +1,23 @@
 # LLM Council — multi-agent debate configuration
 # Defines the persona roster, debate flow, and output contract for the
-# llm-council Skill. Consumable by OpenAI-style multi-agent runners.
+# llm-council Skill. Consumable by any multi-agent runner (Claude, OpenAI, etc.).
 
 name: llm-council
 description: >-
-  Structured multi-agent debate that turns one topic, idea, architecture,
-  design decision, paper summary, or technical problem into opposing expert
-  positions, mutual challenges, rebuttals, and a synthesized final verdict.
+  Executable multi-agent ADR/RFC council that turns one engineering decision,
+  architecture proposal, repo-grounded design tradeoff, or technical red-team
+  review into opposing expert positions, mutual challenges, rebuttals, and a
+  synthesized final verdict.
 
 inputs:
   topic:
     type: string
     required: true
-    description: The question, idea, architecture, or decision to debate.
+    description: The ADR/RFC question, architecture choice, or engineering decision to debate.
   context:
     type: string
     required: false
-    description: Constraints, scale, stack, deadlines, or prior decisions.
+    description: Repo notes, constraints, scale, stack, deadlines, or prior decisions.
   decision_criteria:
     type: string
     required: false
@@ -29,7 +30,7 @@ inputs:
     description: Verbosity of each persona turn and the final verdict.
 
 defaults:
-  model: gpt-4.1
+  model: claude-opus-4-8   # override with gpt-4.1 or any other model your runner supports
   temperature: 0.7
   judge_temperature: 0.3
 

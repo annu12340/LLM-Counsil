@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Council — LangChain vs LangGraph for MTBI SRE Event Correlation Agent</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --panel: #181b25;
+  --panel-2: #1f2330;
+  --border: #2a2f3e;
+  --text: #e6e9f0;
+  --muted: #9aa3b8;
+  --accent: #7c9cff;
+  --accent-2: #b48cff;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --chip: #232838;
+  --p1: #7c9cff;
+  --p2: #5ec8d8;
+  --p3: #6ee7a8;
+  --p4: #f8a35c;
+  --p5: #c79cff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(1200px 600px at 80% -10%, #1b2540 0%, var(--bg) 55%) fixed;
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+
+header.hero {
+  text-align: center;
+  padding: 32px 0 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+.badge {
+  display: inline-block;
+  font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(124,156,255,.12);
+  border: 1px solid rgba(124,156,255,.3);
+  padding: 6px 14px; border-radius: 999px; margin-bottom: 20px;
+}
+h1 {
+  font-size: 34px; margin: 0 0 12px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { color: var(--muted); font-size: 16px; max-width: 640px; margin: 0 auto; }
+
+h2 {
+  font-size: 22px; margin: 48px 0 18px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+h2 .num {
+  font-size: 13px; color: var(--bg);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  width: 26px; height: 26px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700;
+}
+
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 22px 24px; margin: 16px 0;
+}
+.context-grid { display: grid; gap: 14px; }
+.criteria { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+@media (max-width: 640px){ .criteria { grid-template-columns: 1fr; } }
+.criteria .crit {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; font-size: 14px;
+}
+.criteria .crit b { color: var(--accent); }
+
+.turn { margin: 14px 0; padding-left: 16px; border-left: 3px solid var(--border); }
+.speaker { font-weight: 700; }
+.p1 { color: #7c9cff; }
+.p2 { color: #5ec8d8; }
+.p3 { color: #6ee7a8; }
+.p4 { color: #f8a35c; }
+.p5 { color: #c79cff; }
+.judge { color: var(--warn); }
+.arrow { color: var(--muted); font-weight: 400; }
+
+.pverdict {
+  margin-top: 8px; font-size: 13px; color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px; padding: 7px 12px;
+}
+.pverdict b { color: var(--accent-2); font-weight: 700; letter-spacing: .04em; }
+
+.anon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 18px; }
+@media (max-width: 640px){ .anon-grid { grid-template-columns: 1fr; } }
+.anon {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; font-size: 14px;
+}
+.anon .tag {
+  display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .1em;
+  color: var(--bg); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  padding: 2px 10px; border-radius: 6px; margin-bottom: 8px;
+}
+.rate-table th, .rate-table td { text-align: center; }
+.rate-table th:first-child, .rate-table td:first-child { text-align: left; white-space: nowrap; }
+.rate-table td .note { display:block; color: var(--muted); font-size: 11px; line-height: 1.3; margin-top: 2px; }
+.rate-table .self { color: var(--muted); }
+.rate-table .avg td { font-weight: 700; border-top: 2px solid var(--border); }
+.score { font-weight: 700; }
+.s-hi { color: var(--good); }
+.s-mid { color: var(--warn); }
+.s-lo { color: var(--bad); }
+.rank { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+.rank li {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px; font-size: 14px;
+}
+.rank .medal { font-size: 18px; width: 24px; text-align: center; }
+.rank .sc { margin-left: auto; font-weight: 700; }
+.reveal { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.reveal b { color: var(--text); }
+
+.verdict { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 8px 24px 24px; }
+.vrow { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.vrow:last-child { border-bottom: none; }
+.vlabel { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); margin-bottom: 6px; }
+.pill {
+  display: inline-block; font-size: 12px; font-weight: 700;
+  padding: 3px 12px; border-radius: 999px; margin-left: 8px;
+}
+.pill.high { background: rgba(74,222,128,.15); color: var(--good); border: 1px solid rgba(74,222,128,.4); }
+
+ol.actions { counter-reset: step; list-style: none; padding: 0; margin: 8px 0 0; }
+ol.actions li {
+  position: relative; padding: 14px 14px 14px 52px; margin: 10px 0;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+}
+ol.actions li::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 14px; top: 14px;
+  width: 26px; height: 26px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--bg); font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.bottom {
+  margin-top: 40px; padding: 22px 24px;
+  background: linear-gradient(135deg, rgba(124,156,255,.12), rgba(180,140,255,.10));
+  border: 1px solid rgba(124,156,255,.3); border-radius: 14px;
+}
+.bottom .vlabel { color: var(--accent-2); }
+
+.naive {
+  margin: 0 0 32px; padding: 18px 22px;
+  background: var(--panel-2);
+  border: 1px dashed rgba(251,191,36,.45);
+  border-left: 3px solid var(--warn);
+  border-radius: 14px;
+  color: var(--muted); font-size: 15px;
+}
+.naive p { margin: 8px 0; }
+.naive-label {
+  display: inline-block;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--warn); margin-bottom: 8px;
+}
+.naive-risk {
+  font-size: 13px; color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 8px; margin-top: 10px;
+}
+.naive-risk b { color: var(--warn); }
+
+code { background: var(--chip); padding: 2px 7px; border-radius: 6px; font-size: .9em; color: #ffd9a8; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 56px; }
+p { margin: 8px 0; }
+
+.avatar { display: inline-block; margin-right: 6px; font-style: normal; }
+
+.evo {
+  display: grid;
+  grid-template-columns: 160px repeat(3, 1fr) 1.5fr;
+  gap: 8px; align-items: center; margin-top: 6px;
+}
+@media (max-width: 640px){ .evo { grid-template-columns: 110px repeat(3, 1fr); } .evo .evo-final { display:none; } .evo .evo-final.evo-h { display:block; grid-column: 1 / -1; } }
+.evo .evo-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
+.evo .evo-name { font-size: 13px; font-weight: 600; }
+.evo .chip {
+  position: relative; text-align: center; padding: 9px 6px;
+  border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border);
+}
+.evo .chip[data-stance="langgraph"] { background: rgba(124,156,255,.18); color: var(--accent);  border-color: rgba(124,156,255,.4); }
+.evo .chip[data-stance="langchain"] { background: rgba(74,222,128,.15);  color: var(--good);    border-color: rgba(74,222,128,.4); }
+.evo .chip[data-stance="hybrid"]    { background: rgba(251,191,36,.16);  color: var(--warn);    border-color: rgba(251,191,36,.4); }
+.evo .chip[data-stance="undecided"] { background: rgba(154,163,184,.14); color: var(--muted);   border-color: var(--border); }
+.evo .chip .chg {
+  position: absolute; top: -8px; right: -8px;
+  width: 19px; height: 19px; border-radius: 50%;
+  background: var(--accent-2); color: var(--bg);
+  font-size: 12px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.evo .evo-final { font-size: 12px; color: var(--muted); padding-left: 4px; }
+
+.rate-table td[data-score="8"],
+.rate-table td[data-score="9"],
+.rate-table td[data-score="10"] { background: rgba(74,222,128,.13); }
+.rate-table td[data-score="6"],
+.rate-table td[data-score="7"]  { background: rgba(251,191,36,.12); }
+.rate-table td[data-score="3"],
+.rate-table td[data-score="4"],
+.rate-table td[data-score="5"]  { background: rgba(248,113,113,.13); }
+.rate-table td.self {
+  background: repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 5px, var(--panel) 5px, var(--panel) 10px);
+}
+
+.rank li { position: relative; overflow: hidden; }
+.rank .bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: calc(var(--score) / 10 * 100%);
+  background: var(--p1); opacity: .20;
+  border-left: 3px solid var(--bar-color, var(--p1));
+  z-index: 0;
+}
+.rank .bar.p1 { background: var(--p1); --bar-color: var(--p1); }
+.rank .bar.p2 { background: var(--p2); --bar-color: var(--p2); }
+.rank .bar.p3 { background: var(--p3); --bar-color: var(--p3); }
+.rank .bar.p4 { background: var(--p4); --bar-color: var(--p4); }
+.rank .bar.p5 { background: var(--p5); --bar-color: var(--p5); }
+.rank .bar.glow { box-shadow: 0 0 18px 2px var(--bar-color); opacity: .28; }
+.rank li > .medal, .rank li > b, .rank li > .sc { position: relative; z-index: 1; }
+
+.conf-row { display: flex; align-items: center; gap: 22px; }
+.conf-text { flex: 1; }
+.gauge {
+  flex: 0 0 auto; width: 76px; height: 76px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: conic-gradient(var(--good) calc(var(--val, 0) * 1%), var(--border) 0);
+}
+.gauge::before {
+  content: ''; grid-area: 1 / 1;
+  width: 54px; height: 54px; border-radius: 50%; background: var(--panel-2);
+}
+.gauge .val { grid-area: 1 / 1; z-index: 1; font-weight: 700; font-size: 14px; color: var(--good); }
+@media (max-width: 640px){ .conf-row { flex-direction: column; align-items: flex-start; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .turn, .card, .evo { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+  .turn.in, .card.in, .evo.in { opacity: 1; transform: none; }
+  .card .turn:nth-child(1) { transition-delay: .04s; }
+  .card .turn:nth-child(2) { transition-delay: .12s; }
+  .card .turn:nth-child(3) { transition-delay: .20s; }
+  .card .turn:nth-child(4) { transition-delay: .28s; }
+  .card .turn:nth-child(5) { transition-delay: .36s; }
+}
+</style>
+<noscript><style>.turn, .card, .evo { opacity: 1 !important; transform: none !important; }</style></noscript>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">⚖ LLM Council Debate</span>
+    <h1>LangChain vs LangGraph for MTBI SRE Agent</h1>
+    <p class="subtitle">Should you use LangChain or LangGraph to build an MTBI event correlation engine that analyses logs, metrics, traces, and alerts? A structured adversarial debate among five expert personas.</p>
+  </header>
+
+  <div class="naive">
+    <span class="naive-label">Single-model baseline — no council</span>
+    <p>Both LangChain and LangGraph are solid choices for building an SRE event correlation agent. LangChain offers a rich ecosystem of integrations and is great for linear pipelines, while LangGraph excels at stateful, multi-step workflows with cycles and conditional branching. For event correlation, LangGraph might be slightly better due to its built-in state management, but either could work depending on your team's experience. If you're already comfortable with LangChain, you might start there and migrate to LangGraph if you need more complex orchestration.</p>
+    <div class="naive-risk"><b>Why this is risky:</b> Hedges without committing and ignores the fundamental architectural mismatch — SRE event correlation is inherently stateful, cyclic, and graph-shaped, which is precisely what LangGraph was designed for; this answer names no concrete failure mode of choosing the wrong primitive.</div>
+  </div>
+
+  <h2>Topic</h2>
+  <div class="card">
+    Should we use <strong>LangChain</strong> or <strong>LangGraph</strong> to build an <strong>MTBI Agent</strong> — an SRE event correlation engine that ingests and reasons over logs, metrics, traces, and alerts to identify root causes and reduce Mean Time Between Incidents?
+  </div>
+
+  <h2>Context</h2>
+  <div class="card context-grid">
+    <p>MTBI = Mean Time Between Incidents. The agent must ingest multi-modal SRE signals (logs, metrics, traces, alerts), correlate events across sources within temporal windows, hypothesize root causes, and recommend or take remediation actions. Target users are SRE teams. Stack assumed to be Python, cloud-native. Scale and throughput unspecified — assumed moderate (thousands of events/min, not millions/sec).</p>
+    <p>LangChain is a chain/pipeline orchestration framework with broad integrations. LangGraph is a stateful graph execution engine built on top of LangChain, designed for cyclic multi-agent workflows, checkpointing, and human-in-the-loop. They share the same LLM integration layer but differ fundamentally in execution model.</p>
+    <div>
+      <div class="vlabel">Inferred decision criteria</div>
+      <div class="criteria">
+        <div class="crit"><b>1. State management</b> — can the framework track correlation windows, event graphs, and hypothesis state across multi-step reasoning?</div>
+        <div class="crit"><b>2. Workflow flexibility</b> — can it handle cycles, conditionals, and parallel paths required for multi-source correlation?</div>
+        <div class="crit"><b>3. Time-to-production</b> — how fast can a small SRE team ship something that works and earns trust?</div>
+        <div class="crit"><b>4. Observability &amp; debuggability</b> — can you trace exactly what the agent did when it misfires at 3am?</div>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-top:6px"><b>Assumptions:</b> (1) The agent performs LLM-level reasoning over pre-processed event groups, not raw log line ingestion. (2) Automated remediation is in scope but gated behind human confirmation. (3) The team wants a production system, not just a demo.</p>
+  </div>
+
+  <h2><span class="num">1</span> Round 1 — Opening Positions</h2>
+  <div class="card">
+
+    <div class="turn">
+      <span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span>
+      Event correlation is fundamentally a <strong>graph problem</strong>, not a chain problem. When you correlate across logs, metrics, and traces, you're constructing a causal graph — "metric spike → log errors → alert → root cause hypothesis" — and then cycling back to revise that hypothesis as new evidence arrives. LangChain's execution model is a DAG of steps: linear or tree-shaped, with no native support for cycles. LangGraph's execution model is a state machine graph with explicit cycles, conditional edges, and persistent state — which maps directly onto the BDI (Belief-Desire-Intention) loop an SRE agent must run. Using LangChain here is like using a queue when you need a tree: you'll end up rebuilding the missing primitives in Python, which means you're writing LangGraph badly from scratch.
+      <div class="pverdict"><b>Verdict:</b> Use LangGraph — the problem shape is graph-shaped and LangGraph provides the correct primitives without reinvention.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span>
+      The research literature on AIOps event correlation — NetCool, Moogly, BigPanda, PagerDuty AIOps, Dynatrace Davis — consistently shows that high-quality correlation requires multi-hop reasoning under uncertainty: you hypothesize, gather confirming evidence, revise, escalate, and sometimes restart. This is the BDI agent loop, and it is not linear. LangGraph's <code>StateGraph</code> with <code>interrupt()</code>, checkpointing, and conditional edges maps cleanly onto this. LangChain's LCEL chains can emulate cycles via recursion or custom state wrappers, but that is a workaround, not a design. One key concern: LangGraph is a 1.x library with thin production history at SRE scale — the evidence base for its reliability under high-cardinality alert streams is still thin. But architecturally, it is the right fit.
+      <div class="pverdict"><b>Verdict:</b> LangGraph for architecture fit; validate throughput assumptions before committing to the full design.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span>
+      Mapping the five requirements of this system to framework primitives is the fastest way to resolve this debate. (1) <strong>Persistent state across tool calls</strong> (correlation windows, hypothesis tracking) → LangGraph <code>StateGraph</code>, natively. (2) <strong>Parallel ingestion paths</strong> (logs ≠ metrics ≠ traces) → LangGraph <code>Send()</code> for parallel node execution. (3) <strong>Conditional routing</strong> (P1 alert → immediate escalation, P3 → batch) → LangGraph conditional edges, natively. (4) <strong>Human-in-the-loop checkpoints</strong> → LangGraph <code>interrupt()</code>, natively. (5) <strong>Replay/audit of reasoning chains</strong> → LangGraph thread-scoped checkpointing, natively. With LangChain, you build (1), (3), and (5) yourself. I have seen teams spend 3–4 weeks reinventing LangGraph's state machine in LangChain before switching. The delta is non-trivial.
+      <div class="pverdict"><b>Verdict:</b> LangGraph — every systems requirement maps to a built-in primitive; LangChain forces you to build the hard parts from scratch.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span>
+      Everyone loves LangGraph right now. Let me name the actual risks. First, <strong>LangGraph's production maturity is low</strong> — it has broken its API across minor versions; building P0-impacting SRE infrastructure on it is a real operational bet. Second, <strong>LangGraph is not a streaming-first framework</strong> — its parallel node execution uses Python's GIL-bound threading, not I/O concurrency; a high-cardinality event stream will saturate it before the LLM is ever the bottleneck. Third, <strong>the abstraction hides failure modes</strong> — when your correlation logic misfires, you'll debug graph execution traces instead of a Python stack trace. Fourth, <strong>neither framework is the right tool for the hot path</strong> — raw event ingestion and windowing belong in Kafka or Flink; the LLM layer should only see pre-processed event clusters. Choosing LangGraph as if it solves the full architecture is the wrong question.
+      <div class="pverdict"><b>Verdict:</b> Neither alone — the correct architecture is streaming infra for ingestion plus LangGraph for the reasoning layer only; conflating the two is the real risk.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span>
+      SRE teams are the most skeptical internal users you can have. They will not trust an agent that takes opaque actions at 3am — and they will kill the project in week two if the prototype doesn't earn trust quickly. LangGraph's <code>interrupt()</code> is the most important feature for adoption: it lets you build a "suggest only → confirm actions → auto-remediate" trust ladder that earns SRE buy-in incrementally. LangChain can do this, but it requires custom state management that you'll maintain forever. The second user-facing advantage of LangGraph is <strong>resumable workflows</strong>: if the agent is mid-correlation when a timeout hits, it can resume from the last checkpoint. For LangChain, that's a custom implementation. I lean LangGraph for production, but LangChain's larger community and more Datadog/PagerDuty tutorials could get you a convincing internal demo faster — which matters if the project needs to survive a skeptical budget review.
+      <div class="pverdict"><b>Verdict:</b> LangGraph for production; LangChain is only worth considering if you need a convincing demo in under two weeks.</div>
+    </div>
+
+  </div>
+
+  <h2><span class="num">★</span> Anonymized Peer Rating</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">The five opening positions were stripped of author labels and shuffled. Each persona scored the others <strong>blind</strong> (own = <span class="self">—</span>). Composite 1–10 = analytical <strong>rigor</strong> + <strong>usefulness</strong>.</p>
+    <div class="anon-grid">
+      <div class="anon"><span class="tag">Position A</span> LangGraph — every systems requirement maps to a built-in primitive; LangChain forces you to build the hard parts from scratch.</div>
+      <div class="anon"><span class="tag">Position B</span> LangGraph for production; LangChain only if you need a convincing demo in under two weeks.</div>
+      <div class="anon"><span class="tag">Position C</span> Use LangGraph — the problem is graph-shaped and LangGraph provides the correct primitives without reinvention.</div>
+      <div class="anon"><span class="tag">Position D</span> LangGraph for architecture fit; validate throughput assumptions before committing to the full design.</div>
+      <div class="anon"><span class="tag">Position E</span> Neither alone — streaming infra for ingestion plus LangGraph for the reasoning layer; conflating the two is the real risk.</div>
+    </div>
+    <table class="rate-table">
+      <tr><th>Rater \ Position</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+      <tr>
+        <td><span class="p1"><span class="avatar">🧱</span>First-Principles</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">concrete primitive mapping, avoids hand-waving</span></td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">useful adoption framing, lighter on mechanism</span></td>
+        <td class="self">—</td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">BDI framing is correct, throughput caveat is honest</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">best systems boundary — separates ingestion from reasoning</span></td>
+      </tr>
+      <tr>
+        <td><span class="p2"><span class="avatar">🔬</span>Research Scientist</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">five-requirement mapping is rigorous and falsifiable</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">demo vs. prod split undersells the migration cost</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">strong first-principles framing, avoids hype</span></td>
+        <td class="self">—</td>
+        <td data-score="9"><span class="score s-hi">9</span><span class="note">most important insight: scope LangGraph to the reasoning layer</span></td>
+      </tr>
+      <tr>
+        <td><span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span></td>
+        <td class="self">—</td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">trust-building rollout is a real design pattern worth naming</span></td>
+        <td data-score="9"><span class="score s-hi">9</span><span class="note">queue-vs-graph distinction is the cleanest framing here</span></td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">throughput concern is valid but underweights the scoping fix</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">names streaming as the actual hot path — correct and actionable</span></td>
+      </tr>
+      <tr>
+        <td><span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">correct primitives, but misses the ingestion/reasoning scope problem</span></td>
+        <td data-score="6"><span class="score s-mid">6</span><span class="note">prototype framing sets up migration debt, which is a real cost</span></td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">sound, but doesn't name the GIL / streaming throughput risk</span></td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">honest about evidence gap, but needs a decision recommendation</span></td>
+        <td class="self">—</td>
+      </tr>
+      <tr>
+        <td><span class="p5"><span class="avatar">👤</span>Product Advocate</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">five concrete requirements are what SRE architects actually ask</span></td>
+        <td class="self">—</td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">compelling framing but no mention of observability / debuggability</span></td>
+        <td data-score="7"><span class="score s-mid">7</span><span class="note">honest uncertainty, but SRE teams need a commitment not a caveat</span></td>
+        <td data-score="8"><span class="score s-hi">8</span><span class="note">separating the hot path is the most architecturally important point</span></td>
+      </tr>
+      <tr class="avg">
+        <td>Average</td>
+        <td><span class="s-mid">7.5</span></td>
+        <td><span class="s-mid">6.5</span></td>
+        <td><span class="s-mid">7.75</span></td>
+        <td><span class="s-mid">7.25</span></td>
+        <td><span class="s-hi">8.25</span></td>
+      </tr>
+    </table>
+    <ol class="rank">
+      <li><span class="bar p4 glow" style="--score:8.25"></span><span class="medal">🥇</span> <b>Position E</b> — clearest architectural scoping: streaming for ingestion, LangGraph for reasoning <span class="sc">8.25</span></li>
+      <li><span class="bar p1" style="--score:7.75"></span><span class="medal">🥈</span> <b>Position C</b> — strongest first-principles framing of the graph-shaped problem <span class="sc">7.75</span></li>
+      <li><span class="bar p3" style="--score:7.5"></span><span class="medal">🥉</span> <b>Position A</b> — most concrete: five requirements mapped to five LangGraph primitives <span class="sc">7.5</span></li>
+      <li><span class="bar p2" style="--score:7.25"></span><span class="medal">4️⃣</span> <b>Position D</b> — honest about evidence gaps; throughput caveat is well-placed <span class="sc">7.25</span></li>
+      <li><span class="bar p5" style="--score:6.5"></span><span class="medal">5️⃣</span> <b>Position B</b> — user adoption framing is valuable but the prototype split creates migration debt <span class="sc">6.5</span></li>
+    </ol>
+    <p class="reveal"><b>Reveal:</b> A = <span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span> · B = <span class="p5"><span class="avatar">👤</span>Product Advocate</span> · C = <span class="p1"><span class="avatar">🧱</span>First-Principles</span> · D = <span class="p2"><span class="avatar">🔬</span>Research Scientist</span> · E = <span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span>. The blind scores rewarded the argument that separated event ingestion from LLM reasoning — the most architecturally consequential distinction the council made in Round 1.</p>
+  </div>
+
+  <h2><span class="num">2</span> Round 2 — Challenges</h2>
+  <div class="card">
+
+    <div class="turn">
+      <span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker <span class="arrow">→ Skeptic / Red Team:</span></span>
+      The Skeptic correctly separates the event ingestion problem from the reasoning problem, but then uses the ingestion concern to cast doubt on LangGraph for the reasoning layer — which is a category error. LangGraph's <code>Send()</code> parallelism is for <em>LLM call parallelism</em>, not for processing raw log streams at I/O speed. No one should be pointing raw Kafka events at an LLM. The correct read is: Kafka handles the hot path (dedup, windowing, enrichment), and the output of that layer — structured event clusters, maybe 10–200 per minute — is what LangGraph reasons over. At that volume, Python's GIL is irrelevant. The Skeptic's concern is valid for system design, but it doesn't weaken LangGraph as the reasoning orchestrator.
+      <div class="pverdict"><b>Verdict:</b> LangGraph for the reasoning layer; streaming infra upstream is a system design decision, not a framework counter-argument.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p2"><span class="avatar">🔬</span>Research Scientist <span class="arrow">→ Product / User Advocate:</span></span>
+      The Product persona's "LangChain for prototype, LangGraph for production" split sounds pragmatic but carries hidden technical debt. The mental models differ enough that a LangChain prototype does not validate how the LangGraph production system will behave: state transitions, checkpoint semantics, and conditional routing are emergent at the graph level, not at the chain level. You're not refactoring — you're rearchitecting. Research on ML system technical debt (Sculley et al., 2015) shows prototype-to-prod migration in LLM systems consistently underestimates behavioral delta. The wiser path is to build a thinner LangGraph vertical slice from the start: one scenario end-to-end in two weeks, not a wide LangChain prototype you throw away.
+      <div class="pverdict"><b>Verdict:</b> Start LangGraph from day one with a thin vertical slice — the LangChain prototype creates migration debt that is higher than it appears.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer <span class="arrow">→ Skeptic / Red Team:</span></span>
+      The Skeptic's API instability concern is real but manageable with standard engineering practice: pin to a specific minor version (e.g., <code>langgraph==0.2.x</code>), write integration tests for all state transitions, and treat version upgrades as deliberate migrations with changelog review. This is no different from how you handle any 1.x dependency. The alternative — building your own state machine in Python — introduces the same instability risk (your code also has bugs and regressions) without the benefit of LangGraph's community, checkpointing infrastructure, and LangSmith integration. Engineering discipline mitigates the framework risk; it doesn't eliminate the need for the framework.
+      <div class="pverdict"><b>Verdict:</b> LangGraph with version pinning and integration tests — manageable risk, not a reason to rebuild the machinery yourself.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team <span class="arrow">→ Systems Engineer:</span></span>
+      The Systems Engineer lists five requirements that LangGraph supposedly fulfills natively. I'll stress-test requirement (4): human-in-the-loop via <code>interrupt()</code>. In practice, <code>interrupt()</code> suspends the graph at a node boundary and waits for external input — but the state is only durable if you've configured a persistence layer (PostgreSQL, Redis) correctly. The default in-memory checkpointer silently drops state on restart. I have seen teams demo <code>interrupt()</code> in development, ship to production with the wrong checkpointing backend, and discover that state is lost after every pod restart. The Systems Engineer's architecture is correct when the implementation is complete, but "LangGraph natively supports X" elides the configuration gap between "supported" and "working in production."
+      <div class="pverdict"><b>Verdict:</b> LangGraph + external durable checkpointing backend (PostgreSQL) — "native support" is not the same as "production-ready out of the box."</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate <span class="arrow">→ Research Scientist:</span></span>
+      The Research Scientist's point about migration debt is correct and I'm updating my position. However, the internal selling problem for an SRE agent is still real: if you can't show something convincing in two weeks, the project dies. I'm not advocating for a wide LangChain prototype — I'm advocating for a fast vertical slice. The Research Scientist agrees a thin LangGraph vertical slice is possible in two weeks. I accept that. Where I push back: LangSmith (LangChain's observability platform) is the fastest path to a demo that shows the agent's reasoning chain to a skeptical SRE audience. Make sure LangSmith tracing is on from day one — it is the single best trust-building tool for the demo.
+      <div class="pverdict"><b>Verdict:</b> LangGraph from day one with LangSmith tracing enabled — the fast demo and the right architecture are not in conflict.</div>
+    </div>
+
+  </div>
+
+  <h2><span class="num">3</span> Round 3 — Rebuttals</h2>
+  <div class="card">
+
+    <div class="turn">
+      <span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span>
+      The debate has converged on a three-layer architecture that resolves all the concerns: (1) <strong>streaming infrastructure</strong> (Kafka, SQS) for raw event ingestion and buffering, (2) a <strong>lightweight enrichment/clustering step</strong> (rule-based or small ML model) that converts raw events into structured event groups, (3) a <strong>LangGraph <code>StateGraph</code></strong> that reasons over those event groups. The LLM should never see raw log lines — it sees structured clusters with schema. This interface boundary is what makes LangGraph manageable. Define the schema of an "event group" before you write a line of LangGraph code, because that schema is the contract between your infrastructure and your agent.
+      <div class="pverdict"><b>Verdict:</b> LangGraph as the reasoning layer in a three-layer architecture; define the event-group schema first.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span>
+      I accept the three-layer architecture and harden the throughput argument. Production AIOps systems (Moogly, Dynatrace Davis, PagerDuty AIOps) operate at 10–200 correlated event groups per minute at the LLM layer, not at raw events per second. Pre-processing is mandatory — not just for LangGraph, but for any LLM-based system. At that input volume, LangGraph's throughput is more than adequate. The remaining open question is cost: if you run Claude Sonnet or GPT-4 on every correlated event group, at 100 groups/minute you're looking at significant API cost. Architect a tiered approach: a fast/cheap model for triage and de-noising, a capable model for root cause hypothesis and remediation planning.
+      <div class="pverdict"><b>Verdict:</b> LangGraph is appropriate given realistic LLM-layer throughput; add a tiered model strategy to control cost at scale.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span>
+      Incorporating the Skeptic's checkpointing concern: the production architecture must use <code>AsyncPostgresSaver</code> (or <code>AsyncRedisSaver</code>) from day one — never the in-memory default. This is a two-line configuration change but a critical one. Updated architecture: Kafka → event clustering service → LangGraph <code>StateGraph</code> with PostgreSQL checkpointing → PagerDuty/Slack actions. Pin <code>langgraph</code> to a specific minor version. Use LangSmith for trace observability. The five-requirement mapping from Round 1 still holds; the Skeptic's challenge sharpened the implementation, not the framework choice.
+      <div class="pverdict"><b>Verdict:</b> LangGraph + PostgreSQL checkpointing + Kafka upstream + LangSmith — this is the complete production-grade SRE agent architecture.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span>
+      I'm updating from "neither alone" to LangGraph, with the caveats the council has addressed. But I want to name three remaining risks that no one has solved yet. (1) <strong>Hallucination in root cause attribution</strong>: LLMs will confidently name wrong root causes. You need confidence scoring and mandatory human confirmation before any automated remediation — not as a future enhancement, but in v1. (2) <strong>Alert fatigue amplification</strong>: if the agent misfires, it can create more noise than it removes. Add a kill switch that SREs can hit without touching the deployment. (3) <strong>Cost at scale</strong>: at 100 event groups/minute with a capable model, you are spending real money. The tiered model approach the Research Scientist named is not optional — it's a budget constraint.
+      <div class="pverdict"><b>Verdict:</b> LangGraph is the right choice; ship v1 with confidence scoring, a kill switch, and a tiered model strategy — these are not optional.</div>
+    </div>
+
+    <div class="turn">
+      <span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span>
+      The council has landed on a solid architecture. From a user perspective, the critical remaining feature is <strong>explainability</strong>: when the agent says "root cause is the Redis OOM," the SRE team needs to see the exact reasoning chain, not just the conclusion. LangGraph's checkpointing plus LangSmith gives this for free — you can replay every reasoning step the agent took. This is a significant UX advantage over a custom system. The trust-building rollout I'd recommend: (1) Week 1–2: "suggest only" mode — agent shows reasoning but takes no action. (2) Month 1–2: "confirm actions" mode — agent recommends, SRE approves with one click. (3) Month 3+: "auto-remediate low-risk actions" mode — kill switch always present.
+      <div class="pverdict"><b>Verdict:</b> LangGraph with LangSmith for explainability and a staged suggest→confirm→auto trust ladder — adoption depends on making the agent's reasoning visible.</div>
+    </div>
+
+  </div>
+
+  <h2><span class="num">↻</span> Stance Evolution — How the Council Converged</h2>
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;margin-top:0">Council opens with four personas leaning LangGraph and one arguing hybrid (neither alone). Challenges force critical clarifications on checkpointing, prototype cost, and streaming scope. All five converge on LangGraph by Round 3 with a consistent three-layer architectural view.</p>
+    <div class="evo">
+      <div></div>
+      <div class="evo-h">Round 1</div>
+      <div class="evo-h">Round 2</div>
+      <div class="evo-h">Round 3</div>
+      <div class="evo-h evo-final">Final stance</div>
+
+      <div class="evo-name"><span class="avatar">🧱</span>First-Principles</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="evo-final">LangGraph reasoning layer; three-layer architecture; define event-group schema first</div>
+
+      <div class="evo-name"><span class="avatar">🔬</span>Research Scientist</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="evo-final">LangGraph; tiered model (cheap triage, capable for root cause) to control cost</div>
+
+      <div class="evo-name"><span class="avatar">⚙️</span>Systems Engineer</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="evo-final">LangGraph + PostgreSQL checkpointing + Kafka upstream + LangSmith</div>
+
+      <div class="evo-name"><span class="avatar">🚩</span>Skeptic / Red Team</div>
+      <div class="chip" data-stance="hybrid">Hybrid</div>
+      <div class="chip" data-stance="hybrid">Hybrid</div>
+      <div class="chip" data-stance="langgraph">LangGraph<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">LangGraph; requires confidence scoring, kill switch, and tiered model in v1</div>
+
+      <div class="evo-name"><span class="avatar">👤</span>Product Advocate</div>
+      <div class="chip" data-stance="undecided">Undecided</div>
+      <div class="chip" data-stance="langgraph">LangGraph<span class="chg" title="changed mind">↻</span></div>
+      <div class="chip" data-stance="langgraph">LangGraph</div>
+      <div class="evo-final">LangGraph + LangSmith; suggest→confirm→auto trust ladder from day one</div>
+    </div>
+  </div>
+
+  <h2>⚖ Final Verdict</h2>
+  <div class="verdict">
+    <div class="vrow">
+      <div class="vlabel">Best argument</div>
+      The Skeptic's Round 1 position (rated highest by peers) was the most architecturally consequential: the distinction between the event ingestion hot path (streaming infrastructure) and the reasoning layer (LangGraph). This scoping insight resolved the Skeptic's own throughput concern and unlocked consensus. The Systems Engineer's five-requirement-to-five-primitive mapping was the most concrete and falsifiable argument.
+    </div>
+    <div class="vrow">
+      <div class="vlabel">Biggest risk</div>
+      <strong>Hallucination in root cause attribution</strong> leading to automated remediation of the wrong system. This is not a LangChain vs. LangGraph question — it applies regardless of framework — but it must be addressed in v1 with confidence scoring and mandatory human confirmation before any action is taken. Second risk: deploying LangGraph with the in-memory checkpointer in production, causing silent state loss after pod restarts.
+    </div>
+    <div class="vrow">
+      <div class="vlabel">Key tradeoff</div>
+      LangGraph gives you the right primitives for a stateful SRE agent (cycles, checkpointing, conditional routing, human-in-the-loop) at the cost of a younger, less stable API and a smaller community than LangChain. LangChain gives you more integrations, tutorials, and community support at the cost of having to build the stateful machinery yourself — which means you're writing LangGraph badly from scratch.
+    </div>
+    <div class="vrow">
+      <div class="vlabel">Consensus</div>
+      All five personas converged on LangGraph by Round 3. The Skeptic moved from "hybrid (neither alone)" to LangGraph once the ingestion/reasoning scope boundary was established. The Product persona moved from undecided to LangGraph once the migration debt of the prototype split was quantified.
+    </div>
+    <div class="vrow">
+      <div class="vlabel">Recommendation</div>
+      <p><strong>Use LangGraph.</strong> Build a three-layer architecture: (1) Kafka/SQS for event ingestion and buffering, (2) a lightweight enrichment/clustering service that converts raw signals into structured event groups (define this schema first), (3) a LangGraph <code>StateGraph</code> with <code>AsyncPostgresSaver</code> checkpointing for reasoning, root cause hypothesis, and action recommendation. Start in "suggest only" mode. Use LangSmith for trace observability from day one. Add confidence scoring and a kill switch before any automated remediation. Use a cheap model for triage, a capable model (Claude Sonnet or equivalent) for root cause reasoning.</p>
+      <p>Do <em>not</em> build a LangChain prototype with the intent to migrate — the mental models differ enough that the migration is a rearchitecture, not a refactor.</p>
+    </div>
+    <div class="vrow conf-row">
+      <div class="conf-text">
+        <div class="vlabel">Confidence<span class="pill high">HIGH</span></div>
+        All five personas converged on LangGraph by Round 3. The architectural concerns (throughput, API instability, checkpointing) were resolved by scoping LangGraph to the reasoning layer and specifying the production configuration. Remaining risks are implementation concerns, not framework selection concerns.
+      </div>
+      <div class="gauge" data-confidence="88"><span class="val">0%</span></div>
+    </div>
+    <div class="vrow">
+      <div class="vlabel">Next 3 actions</div>
+      <ol class="actions">
+        <li><strong>Define the event-group schema</strong> before writing LangGraph code — specify exactly what a structured event cluster looks like (fields, types, severity, source tags, temporal window). This is the interface contract between your streaming infra and your agent; getting it wrong invalidates everything downstream.</li>
+        <li><strong>Build one vertical slice in LangGraph</strong> with three nodes (<code>ingest_event_group → hypothesize_root_cause → recommend_action</code>), <code>AsyncPostgresSaver</code> checkpointing, and LangSmith tracing — deployed in "suggest only" mode against a replay of your last three real incidents. Validate that the reasoning traces make sense to an SRE before expanding scope.</li>
+        <li><strong>Add confidence scoring and a kill switch</strong> before enabling any automated action — the agent must emit a structured confidence level with every recommendation, and SREs must be able to disable automated actions with a single config flag that does not require a deployment.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>📋 ADR Snippet</h2>
+  <div class="card">
+    <p><b>Status:</b> proposed</p>
+    <p><b>Decision:</b> Use LangGraph as the reasoning orchestrator for the MTBI SRE event correlation agent, within a three-layer architecture (streaming infrastructure → event clustering → LangGraph StateGraph).</p>
+    <p><b>Consequences:</b> This gives us native state management, cycles, conditional routing, human-in-the-loop, and resumable workflows without building these primitives ourselves. It costs us API stability risk (mitigated by version pinning and integration tests), a smaller community than LangChain, and the requirement to configure a durable checkpointing backend (PostgreSQL) from day one. It makes future migration to a custom agent framework easier, since the state machine design is explicit. It makes a pure LangChain path harder to revisit without rearchitecting the stateful portions.</p>
+  </div>
+
+  <div class="bottom">
+    <div class="vlabel">Bottom line</div>
+    Use LangGraph. Event correlation is a graph-shaped, stateful, cyclic problem — LangGraph provides the correct primitives and you would reinvent them poorly in LangChain. Keep Kafka upstream for ingestion, define your event-group schema first, use PostgreSQL checkpointing in production, and ship in "suggest only" mode. The framework choice is resolved; the real work is the event-group schema and the confidence scoring system.
+  </div>
+
+  <footer>Generated by the LLM Council tool · 5 debaters + 1 judge · topic: <code>LangChain vs LangGraph for MTBI SRE event correlation agent</code></footer>
+
+</div>
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var reveal = document.querySelectorAll('.turn, .card, .evo');
+  var gauges = document.querySelectorAll('.gauge');
+
+  function fillGauge(g, value) {
+    g.style.setProperty('--val', value);
+    var v = g.querySelector('.val');
+    if (v) v.textContent = value + '%';
+  }
+
+  if (reduce || !('IntersectionObserver' in window)) {
+    reveal.forEach(function (el) { el.classList.add('in'); });
+    gauges.forEach(function (g) { fillGauge(g, +g.dataset.confidence || 0); });
+    return;
+  }
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12 });
+  reveal.forEach(function (el) { io.observe(el); });
+
+  gauges.forEach(function (g) {
+    var target = +g.dataset.confidence || 0;
+    var go = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      go.unobserve(g);
+      var start = null, dur = 1100;
+      requestAnimationFrame(function step(ts) {
+        if (start === null) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        fillGauge(g, Math.round(p * target));
+        if (p < 1) requestAnimationFrame(step);
+      });
+    }, { threshold: 0.4 });
+    go.observe(g);
+  });
+})();
+</script>
+</body>
+</html>

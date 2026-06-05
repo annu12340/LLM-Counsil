@@ -4,7 +4,7 @@ Reference for how the skill is structured, how a debate run flows through the ag
 
 ## System overview
 
-LLM Council is a **procedure-driven Agent Skill** — not a standalone service. The agent (Cursor or Claude Code) loads `SKILL.md` at session start, matches trigger phrases in the user message, then executes a fixed multi-round debate protocol in a single session. Outputs are **markdown in chat** plus a **self-contained HTML file** written to disk.
+LLM Council is an **AI ADR/RFC decision council for engineering teams**. It can run as a procedure-driven Agent Skill inside Cursor/Claude Code, or as an executable `agents.yaml` runner from the terminal. Both paths produce **Markdown**, **validated council JSON**, an **ADR snippet**, and a **self-contained HTML file** written to disk.
 
 ```mermaid
 flowchart TB
@@ -23,7 +23,7 @@ flowchart TB
   subgraph SkillPkg["skills/llm-council/"]
     SKILL["SKILL.md\n(procedure + output contract)"]
     Rubric["references/debate-framework.md"]
-    YAML["agents/openai.yaml"]
+    YAML["agents/agents.yaml"]
     CSS["assets/council-style.css"]
     JS["assets/council.js"]
   end
@@ -39,6 +39,13 @@ flowchart TB
     HTML["HTML render"]
   end
 
+  subgraph Runner["Executable agents.yaml runner"]
+    RunAgents["scripts/run_agents.py"]
+    Calls["1 model call per persona per round"]
+    Gate["Judge gated until Round 4"]
+    RunAgents --> Calls --> Gate
+  end
+
   subgraph Outputs["Artifacts"]
     MD["Markdown debate\n(chat + template)"]
     ADR["ADR snippet\n(architecture topics)"]
@@ -49,6 +56,7 @@ flowchart TB
   Agent -->|"reads on trigger"| SKILL
   SKILL --> Rubric
   SKILL --> YAML
+  YAML --> RunAgents
   Agent --> Naive --> Code --> R1 --> PR --> R2 --> R3 --> Judge --> HTML
   Judge --> MD
   Judge --> ADR
@@ -63,7 +71,7 @@ flowchart TB
 skills/llm-council/
 ├── SKILL.md                      # Source of truth: triggers, procedure, markdown template, HTML contract
 ├── agents/
-│   └── openai.yaml               # Portable mirror: personas, flow, validation checklist
+│   └── agents.yaml               # Portable mirror: personas, flow, validation checklist
 ├── references/
 │   ├── debate-framework.md       # Rubric (progressive disclosure — loaded on demand)
 │   └── architecture.md           # This document
@@ -76,12 +84,14 @@ skills/llm-council/
 |------|------|
 | `SKILL.md` | Frontmatter `name` + `description` drive auto-discovery; body defines the full procedure |
 | `debate-framework.md` | Scoring anchors, anti-patterns, validation checklist — keeps `SKILL.md` lean |
-| `openai.yaml` | Same roster/flow for OpenAI-style multi-agent runners; must stay in sync with `SKILL.md` |
+| `agents.yaml` | Executable roster/flow for `scripts/run_agents.py`; must stay in sync with `SKILL.md` |
 | `council-style.css` / `council.js` | Bundled into every HTML artifact; no external CDN or `<link>` at render time |
 
-**Sync rule:** When personas, rounds, peer-rating rules, or the HTML class/`data-*` contract change, update `SKILL.md`, `agents/openai.yaml`, and `references/debate-framework.md` together.
+**Sync rule:** When personas, rounds, peer-rating rules, or the HTML class/`data-*` contract change, update `SKILL.md`, `agents/agents.yaml`, and `references/debate-framework.md` together.
 
 ## Debate pipeline
+
+The terminal runner follows the same flow, but each participant is a separate model call: one naive-baseline call, five Round 1 opening calls, five blind peer-rating calls, five Round 2 challenge calls, five Round 3 rebuttal calls, and exactly one Round 4 Judge call. The Judge is never called before Round 4.
 
 ```mermaid
 sequenceDiagram
@@ -135,7 +145,7 @@ Five debaters + one Judge (Judge silent until Round 4). Roster stays at five sea
 | `product_user_advocate` | Product / User Advocate | User value, adoption | 0.7 |
 | `judge_synthesizer` | Judge / Synthesizer | Synthesis only | 0.3 |
 
-**Security council swap:** For auth, data handling, or threat-model topics, replace Product Advocate with **Security Engineer** (`persona_swaps` in `openai.yaml`).
+**Security council swap:** For auth, data handling, or threat-model topics, replace Product Advocate with **Security Engineer** (`persona_swaps` in `agents.yaml`).
 
 ## Inputs
 
@@ -154,7 +164,7 @@ When the topic references a repo, path, or “this codebase”:
 2. Record under **Context**: what **exists** vs what **does not** (no DB, no queue, etc.).
 3. Allow personas to attack the premise (“wrong question for this codebase”).
 
-Fixture in this repo: [`High critical project mock/`](../../../High%20critical%20project%20mock/) — in-memory base-62 shortener for persistence/encoding debates.
+Fixture in this repo: [`url-shortener-fixture/`](../../../url-shortener-fixture/) — in-memory base-62 shortener for persistence/encoding debates.
 
 ## Output contract
 
@@ -208,7 +218,7 @@ Skills load at **session startup** — restart the agent chat after install or e
 | **Adversarial by default** | Manufactured disagreement Rounds 1–2; blind peer rating |
 | **Progressive disclosure** | Rubric in `references/`; assets loaded only at HTML render |
 | **Deterministic outputs** | Markdown template + HTML schema in `SKILL.md` |
-| **Portable** | `openai.yaml` mirrors flow for non-Cursor runners |
+| **Portable** | `agents.yaml` mirrors flow for non-Cursor runners |
 | **No runtime deps** | No server, no API keys in the skill itself — runs entirely in the agent |
 
 ## Related paths in this repo
@@ -221,4 +231,4 @@ Skills load at **session startup** — restart the agent chat after install or e
 | [`scripts/council_tool.py`](../../../scripts/council_tool.py) | Local renderer + validator for the output contract |
 | [`scripts/run-demo.sh`](../../../scripts/run-demo.sh) | One-command demo proof path |
 | [`scripts/install-skills.sh`](../../../scripts/install-skills.sh) | Install all skills |
-| [`High critical project mock/`](../../../High%20critical%20project%20mock/) | Code-aware debate fixture |
+| [`url-shortener-fixture/`](../../../url-shortener-fixture/) | Code-aware debate fixture |

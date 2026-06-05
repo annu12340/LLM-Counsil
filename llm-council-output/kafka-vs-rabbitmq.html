@@ -3,9 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LLM Council — Kafka vs RabbitMQ</title>
+<title>LLM Council — Kafka vs RabbitMQ for Event Pipeline</title>
 <style>
-  :root {
+/* LLM Council debate stylesheet — source of truth for HTML-rendered debates.
+   Inline this into <style> when producing a self-contained debate page.
+   See SKILL.md "HTML rendering" for the class/data contract. */
+:root {
     --bg: #0f1117;
     --panel: #181b25;
     --panel-2: #1f2330;
@@ -182,6 +185,29 @@
   }
   .bottom .vlabel { color: var(--accent-2); }
 
+  /* naive single-model baseline — the deliberate "before" callout */
+  .naive {
+    margin: 0 0 32px; padding: 18px 22px;
+    background: var(--panel-2);
+    border: 1px dashed rgba(251,191,36,.45);
+    border-left: 3px solid var(--warn);
+    border-radius: 14px;
+    color: var(--muted); font-size: 15px;
+  }
+  .naive p { margin: 8px 0; }
+  .naive-label {
+    display: inline-block;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--warn); margin-bottom: 8px;
+  }
+  .naive-risk {
+    font-size: 13px; color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 8px; margin-top: 10px;
+  }
+  .naive-risk b { color: var(--warn); }
+
   code { background: var(--chip); padding: 2px 7px; border-radius: 6px; font-size: .9em; color: #ffd9a8; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
@@ -275,6 +301,11 @@
     .card .turn:nth-child(4) { transition-delay: .28s; }
     .card .turn:nth-child(5) { transition-delay: .36s; }
   }
+
+  .evo .chip[data-stance="kafka"] { background: rgba(124,156,255,.18); color: var(--accent); border-color: rgba(124,156,255,.4); }
+  .evo .chip[data-stance="rabbit"] { background: rgba(74,222,128,.15); color: var(--good); border-color: rgba(74,222,128,.4); }
+  .evo .chip[data-stance="neither"] { background: rgba(251,191,36,.16); color: var(--warn); border-color: rgba(251,191,36,.4); }
+  .evo .chip[data-stance="undecided"] { background: rgba(154,163,184,.14); color: var(--muted); border-color: var(--border); }
 </style>
 <noscript><style>.turn, .card, .evo { opacity: 1 !important; transform: none !important; }</style></noscript>
 </head>
@@ -283,222 +314,193 @@
 
   <header class="hero">
     <span class="badge">⚖ LLM Council Debate</span>
-    <h1>Kafka vs RabbitMQ for <code>tiny-shortener</code></h1>
+    <h1>Kafka vs RabbitMQ for Event Pipeline</h1>
     <p class="subtitle">A structured, adversarial debate among five expert personas, synthesized into a decisive recommendation.</p>
   </header>
 
+  <div class="naive">
+    <span class="naive-label">Single-model baseline — no council</span>
+    <p>Kafka is usually the better choice for high-throughput event streaming and replay, while RabbitMQ is often simpler for task queues and request-driven messaging. At 10k events/sec either can work, so the choice depends on whether replay and retention are central requirements or just nice-to-have operations features.</p>
+    <div class="naive-risk"><b>Why this is risky:</b> That answer is directionally useful but still hedges, treats replay as a vague requirement, and does not price the operational burden for a small team.</div>
+  </div>
+
   <h2>Topic</h2>
   <div class="card">
-    Should this product use <b>Kafka</b> or <b>RabbitMQ</b> as the queue for handling large-scale load?
+    Should we use Kafka or RabbitMQ for an event pipeline handling about 10k events/sec with replay needs and a small ops team?
   </div>
 
   <h2>Context</h2>
   <div class="card context-grid">
-    <p>The repo <code>sample-repo</code> is <b>tiny-shortener</b>: a ~50-line, single-process, <b>in-memory</b> URL shortener exposed as a CLI. State lives in three Python dicts (<code>_urls</code>, <code>_clicks</code>, <code>_next_id</code>) and is <b>discarded on every invocation</b> — the README explicitly says codes don't persist between commands. There is no service, no HTTP layer, no database, and no message queue anywhere in the codebase.</p>
-    <p>So two questions are tangled together, and the council addresses both: <b>the literal question</b> (Kafka vs RabbitMQ for throughput) and <b>the premise</b> (does this product need <i>either</i> right now?).</p>
+    <p>The stated workload is about 10k events/sec, at-least-once delivery, a small operations team, and some need for replay. No hard retention window, consumer count, ordering boundary, or compliance requirement is specified.</p>
+    <p>The decision is not a generic broker popularity contest. It turns on whether durable replay is a product contract or only an operational recovery tool.</p>
     <div>
       <div class="vlabel">Inferred decision criteria</div>
       <div class="criteria">
-        <div class="crit"><b>1. Fit to current need</b> — does adding this solve a problem the product has today?</div>
-        <div class="crit"><b>2. Throughput &amp; ordering</b> — when load arrives, what does each give us?</div>
-        <div class="crit"><b>3. Operational cost</b> — people, infra, and failure modes you take on.</div>
-        <div class="crit"><b>4. Reversibility</b> — how expensive is it to choose wrong?</div>
+        <div class="crit"><b>1. Replay contract</b> — does the system need a durable event log consumers can independently rewind?</div>
+        <div class="crit"><b>2. Operational load</b> — can a small team safely run and debug the broker under incident pressure?</div>
+        <div class="crit"><b>3. Delivery semantics</b> — does the workload need queue-style work distribution or stream-style fan-out?</div>
+        <div class="crit"><b>4. Migration trigger</b> — is there a concrete point where the simpler broker becomes the wrong platform?</div>
       </div>
     </div>
-    <p style="color:var(--muted);font-size:14px;margin-top:6px"><b>Assumption:</b> "large scale load" is aspirational; there is no current traffic, schema, or persistence to scale.</p>
+    <p style="color:var(--muted);font-size:14px;margin-top:6px"><b>Assumption:</b> Replay is useful but not yet specified as a long-retention product feature with many independent consumers.</p>
   </div>
 
   <h2><span class="num">1</span> Round 1 — Opening Positions</h2>
   <div class="card">
-    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> A queue exists to <i>decouple producers from consumers in time</i> — you reach for one when work is produced faster than consumed, or when a consumer fails independently. This product does neither: <code>shorten</code> and <code>resolve</code> are synchronous, sub-microsecond dict operations. <b>Position: neither — the question is premature; the missing primitive is durable storage, not a broker.</b>
-      <div class="pverdict"><b>Verdict:</b> Neither — the missing primitive is durable storage.</div></div>
-    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> The two have categorically different models. Kafka is a <b>distributed, partitioned, replayable log</b> (consumers track offsets; messages are retained and re-readable). RabbitMQ is a <b>smart broker</b> doing per-message routing and ack/redelivery, draining as consumers ack. The deciding variable is replay/multi-consumer/event-history (Kafka) vs transient task dispatch with complex routing (RabbitMQ) — and nothing in the codebase tells us which. <b>Position: undecidable on current evidence; define the workload first.</b>
-      <div class="pverdict"><b>Verdict:</b> Undecidable — define the workload before choosing.</div></div>
-    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> At genuine scale, a shortener's hot path is <b>read-heavy resolves</b> — a caching + datastore problem (Redis/Cassandra/DynamoDB), not a queue problem. A queue earns its place for the async slice: <b>click-analytics ingestion</b> — append-only, high-volume, multi-consumer, replay-valuable, which is Kafka's exact shape. RabbitMQ chokes when queues back up. <b>Position: if/when a queue is needed, it's the analytics firehose — and that's Kafka.</b>
-      <div class="pverdict"><b>Verdict:</b> If anything, Kafka — for the analytics firehose.</div></div>
-    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> The real risk isn't the broker choice — it's <b>resume-driven-architecting a CLI that loses its data on exit</b>. Either choice means a multi-node distributed system serving a product with zero users and no database: months of ops burden, on-call for a broker, and you still can't persist one short code across two calls. <b>Position: adding either now is net-negative; it's premature scaling.</b>
-      <div class="pverdict"><b>Verdict:</b> Adding either now is net-negative — premature scaling.</div></div>
-    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Users care that links resolve fast and stats are roughly right. Neither needs a queue today; it needs codes to survive past one command — the #1 actual defect. A queue becomes user-visible later as "analytics delayed but never lost." <b>Position: defer the queue; priority is persistence, then async analytics — at which point lean Kafka.</b>
-      <div class="pverdict"><b>Verdict:</b> Defer the queue; persistence first, then lean Kafka.</div></div>
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> The fundamental distinction is queue versus log. If the business needs consumers to rewind history independently, that is a log-shaped problem and Kafka is the more natural primitive.
+      <div class="pverdict"><b>Verdict:</b> Choose Kafka if replay is a real contract, not a debugging convenience.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> The evidence gap is the replay requirement. Without a retention window, consumer fan-out count, and ordering boundary, picking Kafka is an assumption masquerading as architecture.
+      <div class="pverdict"><b>Verdict:</b> Measure the replay requirement; Kafka only wins if rewindable history is central.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> A small ops team should avoid buying a distributed log unless the log is the product. RabbitMQ can handle this rate with simpler day-two operations when the workload is mostly delivery and retry.
+      <div class="pverdict"><b>Verdict:</b> Start with RabbitMQ unless durable replay is non-negotiable.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> Both choices can be wrong if the team cannot name failure modes and retention needs. Kafka can become an ops tax, while RabbitMQ can become a migration trap if replay quietly becomes required.
+      <div class="pverdict"><b>Verdict:</b> Neither until replay and retention are made explicit.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Users do not care which broker is elegant; they care that events are processed and incidents are recoverable. The smaller team likely ships faster with RabbitMQ unless customers explicitly need historical replay.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ is the better product move unless replay is user-visible.</div></div>
   </div>
 
   <h2><span class="num">★</span> Anonymized Peer Rating</h2>
   <div class="card">
-    <p style="color:var(--muted);font-size:14px;margin-top:0">The five opening positions were stripped of their author labels and shuffled. Each persona then scored the others <b>blind</b> (own position = <span class="self">—</span>), so the numbers reflect argument quality, not who said it. Composite 1–10 = analytical <b>rigor</b> + <b>usefulness</b>.</p>
+    <p style="color:var(--muted);font-size:14px;margin-top:0">The five opening positions were stripped of author labels and shuffled. Each persona scored the others <b>blind</b> (own = <span class="self">—</span>), so the numbers reflect argument quality, not who said it. Composite 1–10 = analytical <b>rigor</b> + <b>usefulness</b>.</p>
     <div class="anon-grid">
-      <div class="anon"><span class="tag">Position A</span> If/when a queue is needed it's the click-analytics firehose, and that shape is Kafka; resolves are a datastore problem, not a queue one.</div>
-      <div class="anon"><span class="tag">Position B</span> Adopting either now is net-negative — it's a distributed system for a stateless CLI with no users; the risk is premature scaling.</div>
-      <div class="anon"><span class="tag">Position C</span> A queue's only job is temporal producer/consumer decoupling, which this product doesn't have; the missing primitive is durable storage.</div>
-      <div class="anon"><span class="tag">Position D</span> Defer the queue; the #1 user-facing defect is that codes don't persist — fix persistence, then async analytics, then lean Kafka.</div>
-      <div class="anon"><span class="tag">Position E</span> The two are categorically different models; the choice is undecidable on current evidence — define the workload first.</div>
+      <div class="anon"><span class="tag">Position A</span> Start with RabbitMQ unless durable replay is non-negotiable.</div>
+      <div class="anon"><span class="tag">Position B</span> Neither until replay and retention are made explicit.</div>
+      <div class="anon"><span class="tag">Position C</span> Measure the replay requirement; Kafka only wins if rewindable history is central.</div>
+      <div class="anon"><span class="tag">Position D</span> RabbitMQ is the better product move unless replay is user-visible.</div>
+      <div class="anon"><span class="tag">Position E</span> Choose Kafka if replay is a real contract, not a debugging convenience.</div>
     </div>
     <table class="rate-table">
       <tr><th>Rater \ Position</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
       <tr>
-        <td><span class="p1"><span class="avatar">🧱</span>First-Principles</span></td>
-        <td data-score="6"><span class="score s-mid">6</span><span class="note">assumes a fan-out not in evidence</span></td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">reframes to premature scaling</span></td>
-        <td class="self">—</td>
-        <td data-score="6"><span class="score s-mid">6</span><span class="note">"lean Kafka" is a leap</span></td>
-        <td data-score="9"><span class="score s-hi">9</span><span class="note">names the deciding variable</span></td>
+        <td><span class="p1"><span class="avatar">🧱</span>First-Principles</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">prices operations and keeps the condition explicit</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">useful caution but delays the decision</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">correctly demands evidence for replay</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">good adoption lens, lighter on mechanism</span></td><td class="self">—</td>
       </tr>
       <tr>
-        <td><span class="p2"><span class="avatar">🔬</span>Research Scientist</span></td>
-        <td data-score="6"><span class="score s-mid">6</span><span class="note">"Kafka-shaped" without a rate</span></td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">right risk, slightly absolutist</span></td>
-        <td data-score="9"><span class="score s-hi">9</span><span class="note">correct primitive: storage first</span></td>
-        <td class="self">—</td>
-        <td class="self">—</td>
+        <td><span class="p2"><span class="avatar">🔬</span>Research Scientist</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">well matched to the stated ops constraint</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">right uncertainty, less actionable</span></td><td class="self">—</td><td data-score="7"><span class="score s-mid">7</span><span class="note">practical but needs a migration trigger</span></td><td data-score="9"><span class="score s-hi">9</span><span class="note">best primitive-level distinction</span></td>
       </tr>
       <tr>
-        <td><span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span></td>
-        <td class="self">—</td>
-        <td data-score="7"><span class="score s-hi">7</span><span class="note">ignores cheap reversibility</span></td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">fundamentals are sound</span></td>
-        <td data-score="7"><span class="score s-hi">7</span><span class="note">pragmatic sequencing</span></td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">good rule, light on action</span></td>
+        <td><span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span></td><td class="self">—</td><td data-score="8"><span class="score s-hi">8</span><span class="note">good warning against vague requirements</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">sound but not enough of a path</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">keeps team capacity central</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">right abstraction, conditional enough</span></td>
       </tr>
       <tr>
-        <td><span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span></td>
-        <td data-score="5"><span class="score s-lo">5</span><span class="note">no workload numbers</span></td>
-        <td class="self">—</td>
-        <td data-score="9"><span class="score s-hi">9</span><span class="note">nails the real gap</span></td>
-        <td data-score="6"><span class="score s-mid">6</span><span class="note">defers, then undoes it</span></td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">rigorous; alone not actionable</span></td>
+        <td><span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">may underplay future replay pressure</span></td><td class="self">—</td><td data-score="7"><span class="score s-mid">7</span><span class="note">accurate but still punts</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">keeps the user-facing need honest</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">names the real axis of disagreement</span></td>
       </tr>
       <tr>
-        <td><span class="p5"><span class="avatar">👤</span>Product Advocate</span></td>
-        <td data-score="6"><span class="score s-mid">6</span><span class="note">ignores the user's real defect</span></td>
-        <td data-score="7"><span class="score s-hi">7</span><span class="note">no roadmap attached to "no"</span></td>
-        <td data-score="7"><span class="score s-hi">7</span><span class="note">correct but not actionable</span></td>
-        <td class="self">—</td>
-        <td data-score="8"><span class="score s-hi">8</span><span class="note">a rule users can act on</span></td>
+        <td><span class="p5"><span class="avatar">👤</span>Product Advocate</span></td><td data-score="8"><span class="score s-hi">8</span><span class="note">most actionable for a small team</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">valid risk framing but not a decision</span></td><td data-score="7"><span class="score s-mid">7</span><span class="note">evidence-focused but slower to ship</span></td><td class="self">—</td><td data-score="8"><span class="score s-hi">8</span><span class="note">clear conditional rule users can understand</span></td>
       </tr>
       <tr class="avg">
-        <td>Average</td>
-        <td><span class="s-lo">5.8</span></td>
-        <td><span class="s-hi">7.5</span></td>
-        <td><span class="s-hi">8.3</span></td>
-        <td><span class="s-mid">6.3</span></td>
-        <td><span class="s-hi">8.3</span></td>
+        <td>Average</td><td><span class="s-mid">7.8</span></td><td><span class="s-mid">7.3</span></td><td><span class="s-mid">7.3</span></td><td><span class="s-mid">7.5</span></td><td><span class="s-hi">8.3</span></td>
       </tr>
     </table>
     <ol class="rank">
-      <li><span class="bar p1 glow" style="--score:8.3"></span><span class="medal">🥇</span> <b>Position C</b> &amp; <b>Position E</b> — tie, strongest blind scores <span class="sc">8.3</span></li>
-      <li><span class="bar p4" style="--score:7.5"></span><span class="medal">🥈</span> <b>Position B</b> — correct risk framing, a touch absolutist <span class="sc">7.5</span></li>
-      <li><span class="bar p5" style="--score:6.3"></span><span class="medal">🥉</span> <b>Position D</b> — pragmatic but undercut by a premature "Kafka" <span class="sc">6.3</span></li>
-      <li><span class="bar p3" style="--score:5.8"></span><span class="medal">4️⃣</span> <b>Position A</b> — pattern-matched to Kafka without a measured workload <span class="sc">5.8</span></li>
+      <li><span class="bar p1 glow" style="--score:8.3"></span><span class="medal">🥇</span> <b>Position E</b> — clearest queue-versus-log distinction <span class="sc">8.3</span></li>
+      <li><span class="bar p3" style="--score:7.8"></span><span class="medal">🥈</span> <b>Position A</b> — best operationally grounded recommendation <span class="sc">7.8</span></li>
+      <li><span class="bar p5" style="--score:7.5"></span><span class="medal">🥉</span> <b>Position D</b> — strong product and team-capacity framing <span class="sc">7.5</span></li>
+      <li><span class="bar p4" style="--score:7.3"></span><span class="medal">4️⃣</span> <b>Position B</b> — useful risk check, less decisive <span class="sc">7.3</span></li>
+      <li><span class="bar p2" style="--score:7.3"></span><span class="medal">5️⃣</span> <b>Position C</b> — accurate measurement ask, less immediately actionable <span class="sc">7.3</span></li>
     </ol>
-    <p class="reveal"><b>Reveal:</b> A = <span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span> · B = <span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span> · C = <span class="p1"><span class="avatar">🧱</span>First-Principles Thinker</span> · D = <span class="p5"><span class="avatar">👤</span>Product Advocate</span> · E = <span class="p2"><span class="avatar">🔬</span>Research Scientist</span>. The blind scores foreshadowed the verdict — the First-Principles and Research positions out-rated the ones that jumped to a broker.</p>
+    <p class="reveal"><b>Reveal:</b> A = <span class="p3"><span class="avatar">⚙️</span>Systems Engineer</span> · B = <span class="p4"><span class="avatar">🚩</span>Skeptic / Red Team</span> · C = <span class="p2"><span class="avatar">🔬</span>Research Scientist</span> · D = <span class="p5"><span class="avatar">👤</span>Product Advocate</span> · E = <span class="p1"><span class="avatar">🧱</span>First-Principles</span>. The blind scores favored arguments that made replay the deciding variable rather than treating Kafka or RabbitMQ as universally better.</p>
   </div>
 
   <h2><span class="num">2</span> Round 2 — Challenges</h2>
   <div class="card">
-    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker <span class="arrow">→ Systems Engineer:</span></span> You jumped to "analytics firehose = Kafka," but assumed a fan-out workload that doesn't exist in this repo. <code>stats</code> is a synchronous dict lookup. Name the actual producer rate and consumer count — without those numbers, "it's Kafka-shaped" is pattern-matching, not analysis.
-      <div class="pverdict"><b>Verdict:</b> Name the producer rate, or "Kafka-shaped" is just pattern-matching.</div></div>
-    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist <span class="arrow">→ Product / User Advocate:</span></span> "Then lean Kafka" smuggles in a conclusion. Kafka's operational floor — partition planning, consumer-group rebalancing, offset management — is <i>not</i> lean for a small team. If analytics volume is &lt;10k events/sec, a Postgres table or Redis stream handles it with a fraction of the cognitive load.
-      <div class="pverdict"><b>Verdict:</b> "Lean Kafka" hides Kafka's real operational floor.</div></div>
-    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer <span class="arrow">→ Skeptic:</span></span> The product is a toy today, but "never scale anything" is how you get a rewrite under fire. The cost asymmetry matters: choosing a datastore that <i>can</i> emit a change-stream later (Dynamo Streams, Postgres logical decoding) is nearly free now and saves a migration. Dismissing all forward design as "resume-driven" throws out cheap reversibility.
-      <div class="pverdict"><b>Verdict:</b> Don't dismiss cheap forward design as resume-driven.</div></div>
-    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team <span class="arrow">→ Systems Engineer:</span></span> "Cheap reversibility" cuts the other way — the cheapest reversible move is to <b>not</b> adopt a broker, because not having Kafka is trivially reversible and having it means you own its outages. Your Dynamo-Streams point proves mine: the right move is a datastore with optional CDC, which means the queue decision is <i>deferred</i>, not "Kafka."
-      <div class="pverdict"><b>Verdict:</b> Not adopting a broker is the cheapest reversible move.</div></div>
-    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate <span class="arrow">→ First-Principles Thinker:</span></span> You're right it's premature, but "neither, full stop" isn't actionable for someone clearly planning ahead. Give them the trigger condition, not just a "no" — refusing to name what they'd choose when the time comes leaves them with no roadmap.
-      <div class="pverdict"><b>Verdict:</b> "Neither" needs a trigger condition to be actionable.</div></div>
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker <span class="arrow">→ Systems Engineer:</span></span> Your RabbitMQ recommendation is pragmatic, but it risks choosing the wrong primitive if replay means independent consumer rewind. A queue can emulate some recovery, but it is not the same abstraction as a retained log.
+      <div class="pverdict"><b>Verdict:</b> Kafka remains the right primitive if replay means rewindable history.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist <span class="arrow">→ Product / User Advocate:</span></span> Saying users only care about outcomes is true but incomplete. If users need auditability, backfills, or rebuilding projections, historical replay becomes part of the product outcome.
+      <div class="pverdict"><b>Verdict:</b> User value must include whether history can be rebuilt.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer <span class="arrow">→ First-Principles Thinker:</span></span> The primitive distinction is right, but architecture also has to survive day two. Without a named retention window and consumer model, Kafka optimizes for a future the team has not committed to.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ now, Kafka only when replay is specified as a durable contract.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team <span class="arrow">→ Research Scientist:</span></span> Measurement cannot become an excuse for indecision. The team can pick RabbitMQ if it also writes down the trigger that forces Kafka later.
+      <div class="pverdict"><b>Verdict:</b> Pick RabbitMQ only with a hard Kafka migration trigger.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate <span class="arrow">→ Skeptic / Red Team:</span></span> Neither is too expensive as a product answer. The team needs a default that ships, plus a clearly documented escape hatch if replay becomes user-visible.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ with an explicit replay-triggered escape hatch.</div></div>
   </div>
 
   <h2><span class="num">3</span> Round 3 — Rebuttals</h2>
   <div class="card">
-    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> Conceded to the Product Advocate — "neither" needs a trigger attached. <b>Updated:</b> neither now; the decision unlocks only once you have (a) durable storage and (b) a measured async workload with a producer rate. When resolve-event volume exceeds what a synchronous datastore write absorbs, <i>that's</i> when you queue.
-      <div class="pverdict"><b>Verdict:</b> Neither now — unlocks at durable storage + a measured async rate.</div></div>
-    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> Holding, sharpened. The answer is a function of a number nobody measured. <b>Rule:</b> replay / multiple consumers / retention &gt; hours → Kafka; transient task dispatch with rich routing and modest volume → RabbitMQ; below ~tens-of-thousands/sec with one consumer → neither, use a Redis stream or DB table.
-      <div class="pverdict"><b>Verdict:</b> Holding — the answer is a function of an unmeasured number.</div></div>
-    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> Skeptic's reversibility point landed — I withdraw "it's Kafka now." What survives: when analytics <i>do</i> materialize, their shape favors Kafka, a defensible default <i>at that point</i>. But the action today is a datastore with an optional change-stream, not a broker. We agree more than I first framed.
-      <div class="pverdict"><b>Verdict:</b> Withdrew "Kafka now" — datastore with optional CDC today.</div></div>
-    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> Position intact, now near-consensus: the only defensible move today is persistence + measurement, explicitly <b>not</b> a broker for a stateless CLI. One grant to the Systems Engineer: <i>document</i> the future trigger so the deferral is deliberate, not forgetful.
-      <div class="pverdict"><b>Verdict:</b> Persistence + measurement; explicitly not a broker yet.</div></div>
-    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> Updated by the Research Scientist: I withdraw "lean Kafka" as a reflex. The user-facing sequence is (1) make codes persist, (2) measure click volume, (3) only then queue — and the choice follows the Scientist's rule. Users feel durability and correctness, not the broker's logo.
-      <div class="pverdict"><b>Verdict:</b> Withdrew "lean Kafka" reflex — persist → measure → then queue.</div></div>
+    <div class="turn"><span class="speaker p1"><span class="avatar">🧱</span>First-Principles Thinker:</span> I update from a Kafka lean to a conditional recommendation. Given the small ops team and unspecified retention, RabbitMQ is acceptable now, but only because the decision rule preserves the queue-versus-log boundary.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ now; switch to Kafka when durable rewind is a product contract.</div></div>
+    <div class="turn"><span class="speaker p2"><span class="avatar">🔬</span>Research Scientist:</span> I agree with the conditional path. The missing evidence should become an action item: define retention window, consumer fan-out, and replay frequency before the broker choice hardens.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ provisionally; Kafka if measured replay needs cross the threshold.</div></div>
+    <div class="turn"><span class="speaker p3"><span class="avatar">⚙️</span>Systems Engineer:</span> Holding. RabbitMQ fits the current operating constraints and throughput target, and the architecture should keep events and consumers decoupled enough to migrate if replay becomes central.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ now with migration seams and replay metrics.</div></div>
+    <div class="turn"><span class="speaker p4"><span class="avatar">🚩</span>Skeptic / Red Team:</span> I accept RabbitMQ as the default only if the team writes down the non-negotiable Kafka trigger. Otherwise the simpler choice becomes a trap rather than a pragmatic step.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ, but only with a written Kafka trigger.</div></div>
+    <div class="turn"><span class="speaker p5"><span class="avatar">👤</span>Product / User Advocate:</span> The sharpened recommendation works: ship the simpler operational path now, and make the product promise around replay explicit before customers depend on it.
+      <div class="pverdict"><b>Verdict:</b> RabbitMQ now; revisit when replay becomes a customer promise.</div></div>
   </div>
 
   <h2><span class="num">↻</span> Stance Evolution — How the Council Converged</h2>
   <div class="card">
-    <p style="color:var(--muted);font-size:14px;margin-top:0">Each persona's per-round <b>Verdict:</b> line, bucketed by stance. The grid starts mixed and collapses toward <span style="color:var(--good)">neither</span> by Round 3 — a <span style="color:var(--accent-2)">↻</span> marks where a persona changed their mind.</p>
+    <p style="color:var(--muted);font-size:14px;margin-top:0">The council starts split between Kafka, RabbitMQ, and neither. The challenges force replay to become the deciding variable, and the final convergence is RabbitMQ now with a concrete Kafka trigger.</p>
     <div class="evo">
       <div></div>
       <div class="evo-h">Round 1</div>
       <div class="evo-h">Round 2</div>
       <div class="evo-h">Round 3</div>
       <div class="evo-h evo-final">Final stance</div>
-
       <div class="evo-name"><span class="avatar">🧱</span>First-Principles</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="evo-final">Neither — storage first</div>
-
-      <div class="evo-name"><span class="avatar">🔬</span>Research</div>
-      <div class="chip" data-stance="undecided">Undecided</div>
-      <div class="chip" data-stance="undecided">Undecided</div>
-      <div class="chip" data-stance="undecided">Undecided</div>
-      <div class="evo-final">Undecidable — measure first</div>
-
-      <div class="evo-name"><span class="avatar">⚙️</span>Systems</div>
       <div class="chip" data-stance="kafka">Kafka</div>
       <div class="chip" data-stance="kafka">Kafka</div>
-      <div class="chip" data-stance="neither">Neither<span class="chg" title="changed mind">↻</span></div>
-      <div class="evo-final">Withdrew "Kafka now" — datastore + CDC</div>
-
-      <div class="evo-name"><span class="avatar">👤</span>Product</div>
-      <div class="chip" data-stance="neither">Neither <small>(lean Kafka)</small></div>
+      <div class="chip" data-stance="rabbit">RabbitMQ<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">RabbitMQ now; Kafka when durable rewind is contractual</div>
+      <div class="evo-name"><span class="avatar">🔬</span>Research Scientist</div>
+      <div class="chip" data-stance="kafka">Kafka</div>
+      <div class="chip" data-stance="kafka">Kafka</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ<span class="chg" title="changed mind">↻</span></div>
+      <div class="evo-final">RabbitMQ provisionally; Kafka if replay measurements justify it</div>
+      <div class="evo-name"><span class="avatar">⚙️</span>Systems Engineer</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="evo-final">RabbitMQ now with migration seams</div>
+      <div class="evo-name"><span class="avatar">🚩</span>Skeptic / Red Team</div>
       <div class="chip" data-stance="neither">Neither</div>
-      <div class="chip" data-stance="neither">Neither<span class="chg" title="withdrew lean-Kafka">↻</span></div>
-      <div class="evo-final">Persist → measure → then queue</div>
-
-      <div class="evo-name"><span class="avatar">🚩</span>Skeptic</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="chip" data-stance="neither">Neither</div>
-      <div class="evo-final">Not a broker yet</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ<span class="chg" title="changed mind">↻</span></div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="evo-final">RabbitMQ only with a written Kafka trigger</div>
+      <div class="evo-name"><span class="avatar">👤</span>Product Advocate</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="chip" data-stance="rabbit">RabbitMQ</div>
+      <div class="evo-final">RabbitMQ now; revisit when replay is customer-visible</div>
     </div>
   </div>
 
   <h2>⚖ Final Verdict</h2>
   <div class="verdict">
-    <div class="vrow"><div class="vlabel">Best argument</div>The First-Principles Thinker's — a queue's only job is temporal decoupling of producer and consumer, and this product has no such split. Everything downstream (Kafka vs Rabbit) is moot until that primitive exists. The Skeptic's reversibility framing reinforced it: <i>not</i> adopting a broker is the cheaply-reversible choice.</div>
-    <div class="vrow"><div class="vlabel">Biggest risk</div><b>Premature scaling.</b> Trigger: a team stands up a multi-node Kafka/RabbitMQ cluster (and its on-call burden) for a product that still loses all state on process exit and has zero measured traffic. Likelihood: high, given the question was asked at all.</div>
-    <div class="vrow"><div class="vlabel">Key tradeoff</div>When a queue <i>is</i> warranted — <b>Kafka</b> buys replay + multi-consumer fan-out + retention at the cost of partition/offset/rebalance overhead; <b>RabbitMQ</b> buys simple low-latency task dispatch with rich routing at the cost of poor backpressure behavior and no native replay.</div>
-    <div class="vrow"><div class="vlabel">Consensus</div>All five converged that <b>neither should be added now</b>; the genuine first problem is <b>persistence</b>, and the queue choice should be driven by a <i>measured</i> async workload, not anticipated.</div>
-    <div class="vrow"><div class="vlabel">Recommendation</div>
-      <p><b>Do not add Kafka or RabbitMQ now.</b> First give the shortener durable storage (Postgres or Redis/KV) and a real service boundary. Add async messaging only when click-event volume exceeds what a synchronous datastore write absorbs. At that point:</p>
-      <table>
-        <tr><th>If the workload is…</th><th>Choose</th></tr>
-        <tr><td>Event replay, multiple independent consumers, or retention &gt; a few hours (typical analytics ingest)</td><td><b>Kafka</b></td></tr>
-        <tr><td>Transient task dispatch with complex routing and modest volume</td><td><b>RabbitMQ</b></td></tr>
-        <tr><td>Sustained volume &lt; ~tens-of-thousands/sec with a single consumer</td><td><b>Neither</b> (Redis Stream / DB outbox)</td></tr>
-      </table>
-    </div>
-    <div class="vrow conf-row">
-      <div class="conf-text"><div class="vlabel">Confidence<span class="pill high">HIGH</span></div>The recommendation rests on a well-understood mechanism (queues decouple producers/consumers) and deferring is fully reversible with near-zero downside. The conditional Kafka-vs-Rabbit call is medium, since it hinges on an unmeasured workload.</div>
-      <div class="gauge" data-confidence="85"><span class="val">0%</span></div>
-    </div>
+    <div class="vrow"><div class="vlabel">Best argument</div>The best argument was the First-Principles queue-versus-log distinction, tempered by the Systems Engineer&#x27;s operational constraint: Kafka is right for durable replay, but RabbitMQ is the safer default when replay is not yet a product contract.</div>
+    <div class="vrow"><div class="vlabel">Biggest risk</div>The biggest risk is letting a vague replay requirement drift until RabbitMQ becomes a trap or Kafka becomes an unnecessary operational burden.</div>
+    <div class="vrow"><div class="vlabel">Key tradeoff</div>RabbitMQ buys lower operational load and faster delivery for a small team; Kafka buys retained history and independent rewind at the cost of more complex operations.</div>
+    <div class="vrow"><div class="vlabel">Consensus</div>All five personas converged on replay as the deciding variable. With replay underspecified, RabbitMQ is acceptable now only if the team documents the Kafka trigger.</div>
+    <div class="vrow"><div class="vlabel">Recommendation</div><p>Use RabbitMQ for the current pipeline, and write a hard migration trigger: move to Kafka if replay becomes a customer-visible or compliance-backed requirement, if consumers need independent rewind over a meaningful retention window, or if backfills become routine.</p></div>
+    <div class="vrow conf-row"><div class="conf-text"><div class="vlabel">Confidence<span class="pill med">MEDIUM-HIGH</span></div>The recommendation is strong for the stated small-team constraint, but confidence depends on validating the real retention and replay requirements.</div><div class="gauge" data-confidence="82"><span class="val">0%</span></div></div>
     <div class="vrow"><div class="vlabel">Next 3 actions</div>
       <ol class="actions">
-        <li><b>Make state durable:</b> replace the in-memory dicts in <code>shortener.py</code> with a real store (Postgres or Redis) and an <code>id</code> allocation that survives restarts — fixes the actual #1 defect.</li>
-        <li><b>Wrap it as a service and instrument it:</b> put resolves behind an HTTP endpoint and emit a click event/metric so you can <i>measure</i> real event volume and read:write ratio.</li>
-        <li><b>Write a one-paragraph "queue trigger" doc:</b> record the threshold (e.g., "async click volume &gt; N/sec or multiple analytics consumers → introduce Kafka; revisit otherwise") so the decision is made on data later, not vibes now.</li>
+        <li>Define the replay contract this week: retention window, consumer count, rewind frequency, and whether replay is customer-visible.</li>
+        <li>Start with RabbitMQ only if replay is operational recovery rather than a product promise; document the exact Kafka migration trigger in the ADR.</li>
+        <li>Instrument event volume, consumer lag, failed-message recovery, and backfill requests so the trigger is based on observed pressure rather than taste.</li>
       </ol>
     </div>
   </div>
 
+  <h2>📋 ADR Snippet</h2>
+  <div class="card">
+    <p><b>Status:</b> proposed</p>
+    <p><b>Decision:</b> Adopt RabbitMQ for the current event pipeline, with a documented migration trigger to Kafka when durable replay becomes a product or compliance requirement.</p>
+    <p><b>Consequences:</b> This lowers operational load for the small team and keeps shipping speed high, but it requires discipline around replay metrics and may require migration work if event history becomes central.</p>
+    </div>
+
   <div class="bottom">
     <div class="vlabel">Bottom line</div>
-    For <code>tiny-shortener</code> as it exists today, the answer to "Kafka or RabbitMQ" is <b>neither — yet</b>. The product's real gap is that it doesn't persist a single short code between two CLI calls. Fix durability and add measurement first; when the analytics firehose actually shows up, default to <b>Kafka</b> for its replay/fan-out shape, and fall back to RabbitMQ or a lighter Redis-stream/DB-outbox only if the measured workload says so.
+    Use RabbitMQ now because the team is small and replay is underspecified. Treat Kafka as the deliberate next step when retained, independently rewindable history becomes part of the product contract.
   </div>
 
-  <footer>Generated by the LLM Council skill · 5 debaters + 1 judge · grounded in <code>sample-repo</code></footer>
+  <footer>Generated by the LLM Council tool · 5 debaters + 1 judge · grounded in <code>standalone infrastructure decision</code></footer>
 
 </div>
 <script>
+/* LLM Council debate behavior — scroll-reveal + confidence gauge.
+   Inline this into <script> before </body> in a self-contained debate page.
+   Respects prefers-reduced-motion: shows everything immediately, no animation. */
 (function () {
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var reveal = document.querySelectorAll('.turn, .card, .evo');
@@ -539,6 +541,7 @@
     go.observe(g);
   });
 })();
+
 </script>
 </body>
 </html>
