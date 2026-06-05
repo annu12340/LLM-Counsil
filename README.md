@@ -4,23 +4,12 @@
 
 It replaces the usual "here are some pros and cons" LLM answer with a fixed council protocol: opening stances, blind peer rating, named challenges, rebuttals, and a Judge who must commit to a recommendation with confidence, risks, tradeoffs, and three concrete next actions.
 
-Output: **full Markdown debate**, **ADR snippet**, validated council JSON, and an **offline HTML artifact** under [`llm-council-output/`](llm-council-output/) you can drop into a PR, Slack, or wiki.
-
 Impact target: turn a 60–90 minute ADR/RFC prep loop into a 5–10 minute council run + edit pass — roughly **80–90% less decision-artifact prep time** — while replacing one unchallenged model answer with a **22-call, 6-seat review protocol**.
 
-**Landing page:** open [`index.html`](index.html) in a browser
+## Demo
+- https://llm-counsil.netlify.app/
 
-## Who is this for?
-
-| Role | Example use |
-|------|-------------|
-| **Staff / senior engineers** | Pressure-test an ADR before it becomes the team default |
-| **Tech leads** | Turn "Kafka or RabbitMQ?" / "Postgres or Redis?" into an auditable recommendation |
-| **Engineering managers** | Attach the HTML artifact to an RFC so tradeoffs and objections are visible |
-| **Platform teams** | Review migrations, infrastructure bets, and operational risk with a repeatable protocol |
-| **Maintainers** | Run code-aware reviews that cite real modules, tests, and missing boundaries |
-
-You don't need Cursor or Claude Code. If you have an `ANTHROPIC_API_KEY`, you can run a debate from the terminal in two commands.
+Watch the demo:- https://youtu.be/6Qkq59PMMFA
 
 ## Impact numbers
 
