@@ -1,5 +1,0 @@
-"/llm-council Should this repo use Postgres or Redis for persistence?"
-
-"/llm-council Is base-62 the right encoding for this shortener, or should we use UUIDs?"
-
- "/llm-council Should High critical project mock switch from sequential ids to random/hashed codes?"
